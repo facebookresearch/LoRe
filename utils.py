@@ -158,6 +158,13 @@ def solve_regularized(V_sft, alpha, train_features, num_basis_vectors, num_itera
     W, V = am.train(train_features)
     return W, V.detach()
 
+def solve_regularized_simplex(V_sft, alpha, train_features, num_basis_vectors, num_iterations=1000, learning_rate=0.01):
+    num_classes = len(train_features)
+    num_features = 4096
+    am = LoRe_regularized(V_sft, alpha, num_classes, num_features, num_basis_vectors, num_iterations, learning_rate)
+    W, V = am.train(train_features)
+    return W, V.detach()
+
 def solve_multi_reward(train_features, num_basis_vectors, num_iterations=1000, learning_rate=0.01):
     num_classes = len(train_features)
     num_features = train_features[0][0].shape[0]
@@ -178,6 +185,145 @@ def learn_single_reward_regularized(V_ref, alpha, train_features, num_iterations
     sm = SingleRewardModel_regularized(V_ref, alpha, N, num_features, 1, num_iterations, learning_rate).to(device)
     V = sm.train(train_features)
     return V.detach()
+
+class LoRe_regularized(nn.Module):
+    def __init__(
+        self, V_sft, alpha, num_classes, num_features, num_basis_vectors,
+        num_iterations, learning_rate
+    ):
+        super().__init__()
+        self.V_sft = V_sft.to(device)
+        self.V_sft_norm = F.normalize(self.V_sft, dim=0)   # normalize once
+        self.alpha = alpha
+        self.num_classes = num_classes
+        self.num_features = num_features
+        self.num_basis_vectors = num_basis_vectors
+        self.num_iterations = num_iterations
+        self.learning_rate = learning_rate
+
+        self.W = nn.Parameter(torch.rand(num_classes, num_basis_vectors, device=device))
+        self.V = nn.Parameter(torch.randn(num_features, num_basis_vectors, device=device))
+
+    # --- NEW: pack once ---
+    @staticmethod
+    def _prepare_batch(X):
+        """
+        X: list of length C; X[i] is [m_i, F]
+        Returns:
+          X_cat: [N, F], y: [N] (values in 0..C-1)
+        """
+        x_list, y_list = [], []
+        for i, x in enumerate(X):
+            x_list.append(x)
+            y_list.append(torch.full((x.shape[0],), i, device=x.device, dtype=torch.long))
+        X_cat = torch.cat(x_list, dim=0)
+        y = torch.cat(y_list, dim=0)
+        return X_cat, y
+
+    def _forward_from_packed(self, X_cat, y, alpha_curr):
+        # choose which parameter set to freeze for this pass
+        V_used = self.V
+        # V_used = F.normalize(self.V, dim=0)
+        W_logits = self.W
+
+        W_row = F.softmax(W_logits, dim=1)    # [C, B]
+        Vw    = V_used @ W_row.T              # [F, C]
+
+        logits_all = (X_cat @ Vw) / 100.0     # [N, C]
+        logits = logits_all.gather(1, y.unsqueeze(1)).squeeze(1)
+        nll = -F.logsigmoid(logits).mean()
+
+        # V-alignment reg should only act when we're updating V
+        reg = 0.0
+        if alpha_curr > 0:   
+            V_norm = F.normalize(self.V, dim=0)
+            V_sft_norm = F.normalize(self.V_sft, dim=0)
+            cos_sim = (V_norm * V_sft_norm).sum(dim=0)
+            reg = torch.mean(1 - cos_sim)
+
+        # # Diversity reg should only act when we're updating W
+        entropy_loss = 0.0
+        # entropy_loss = self._diversity_loss_rows()
+
+        return nll, reg, entropy_loss
+
+
+    # keep a compatibility wrapper (packs every call)
+    def forward(self, X, alpha_curr):
+        X_cat, y = self._prepare_batch(X)
+        return self._forward_from_packed(X_cat, y, alpha_curr)
+
+    def _alpha_at_step(self, step: int) -> float:
+        warmup_start = int(0.2 * self.num_iterations)
+        warmup_end   = int(0.8 * self.num_iterations)
+        if step < warmup_start: return 0.0
+        if step >= warmup_end:  return float(self.alpha)
+        return float(self.alpha) * (step - warmup_start) / (warmup_end - warmup_start)
+
+    def train(self, X):
+        self.to(device)
+        X_cat, y = self._prepare_batch(X)
+        X_cat = X_cat.to(device, non_blocking=True)
+        y     = y.to(device, non_blocking=True)
+
+        optimizer_W = optim.Adam([self.W], lr=self.learning_rate)
+        optimizer_V = optim.Adam([self.V], lr=self.learning_rate)
+
+        for step in range(self.num_iterations):
+            alpha_curr = self._alpha_at_step(step)
+
+            # ---- Update W: freeze V ----
+            optimizer_W.zero_grad()
+            nll_W, _, _ = self._forward_from_packed(
+                X_cat, y, alpha_curr=0.0)
+            
+            # loss_W = nll_W + self.entropy_weight * entropy_loss
+            nll_W.backward()
+            optimizer_W.step()
+
+            # ---- Update V: freeze W ----
+            optimizer_V.zero_grad()
+            nll_V, reg, _ = self._forward_from_packed(
+                X_cat, y, alpha_curr=alpha_curr
+            )
+            total_loss_V = nll_V + alpha_curr * reg
+            total_loss_V.backward()
+            optimizer_V.step()
+
+            if (step + 1) == self.num_iterations:
+                W_sm = F.softmax(self.W, dim=1)
+                print(f"W mean per dim: {W_sm.mean(dim=0).detach().cpu().numpy()}")
+                print(f"W std  per dim: {W_sm.std(dim=0).detach().cpu().numpy()}")
+                # L2 norms of V columns (parameter) and of the normalized V used in forward
+                with torch.no_grad():
+                    V_param_norms = torch.linalg.vector_norm(self.V, ord=2, dim=0)
+                print(f"||V[:, i]|| (param): {V_param_norms.detach().cpu().numpy()}")
+
+                print(
+                    f"Step {step}: "
+                    f"NLL(W)={nll_W.item():.4f}, "
+                    f"NLL(V)={nll_V.item():.4f}, "
+                    f"Reg={float(reg):.4f}, "
+                    f"Alpha={alpha_curr:.4f}, "
+                )
+        
+        # ---- Return only directions with min_c softmax(W)[c, i] >= 1e-2 ----
+        W_probs = F.softmax(self.W, dim=1)                   # [C, B]
+        max_per_basis = W_probs.max(dim=0).values            # [B]
+        print(max_per_basis)
+        mask = (max_per_basis >= 1e-2)                       # bool[B]
+
+        W_kept = W_probs[:, mask]                            # [C, B_kept]
+        V_kept = self.V[:, mask]                             # [F, B_kept]
+        num_kept = int(mask.sum().item())
+        print(f"Num dimensions kept: {num_kept}/{self.num_basis_vectors} (threshold=1e-2)")
+
+        print(f"W mean per dim: {W_kept.mean(dim=0).detach().cpu().numpy()}")
+        print(f"W std  per dim: {W_kept.std(dim=0).detach().cpu().numpy()}")
+
+        return W_kept, V_kept
+                
+        # return F.softmax(self.W, dim=1), self.V
 
 class LoRe(nn.Module):
     def __init__(self, V_sft, alpha, num_classes, num_features, num_basis_vectors, num_iterations, learning_rate):
@@ -395,6 +541,98 @@ def sample_shots(train_features_unseen, shots):
     # Sample shots number of elements from each tensor
     sampled_features = [tensor[torch.randperm(tensor.size(0))[:shots]] for tensor in train_features_unseen]
     return sampled_features
+
+def run_regularized(K_list, alpha_list, V_final, train_features, test_features_sparse, 
+                       train_features_unseen, test_features_sparse_unseen, N, N_unseen, device):
+    """
+    Compute accuracies for joint and few-shot learning.
+
+    Parameters:
+    K_list (list): List of values for K.
+    alpha_list (list): List of values for alpha.
+    V_final (tensor): Final value of V. 
+    train_features (tensor): Training features.
+    test_features_sparse (tensor): Test features for seen users.
+    train_features_unseen (tensor): Training features for unseen users.
+    test_features_sparse_unseen (tensor): Test features for unseen users.
+    N (int): Number of seen users.
+    N_unseen (int): Number of unseen users.
+    device (device): Device to use for computations.
+
+    Returns:
+    tuple: Tuple containing 9 numpy arrays with computed accuracies and standard deviations.
+    """
+
+    # Initialize lists to store results
+    train_accuracies_joint = []
+    seen_user_unseen_prompts_accuracies_joint = []
+    few_shot_train_accuracies_few_shot = []
+    unseen_user_unseen_prompts_accuracies_few_shot = []
+    train_accuracies_joint_std = []
+    seen_user_unseen_prompts_accuracies_joint_std = []
+    few_shot_train_accuracies_few_shot_std = []
+    unseen_user_unseen_prompts_accuracies_few_shot_std = []
+
+    for alpha in alpha_list:
+        print("alpha : ", alpha)
+
+        # Joint Reward and Weights Learning
+        for K in K_list:
+            print("Rank : ", K)
+            if K == 0:
+                V_joint = V_final
+                W_joint = [torch.tensor([1.0]).to(device) for i in range(N)]
+            else: 
+                W_joint, V_joint = solve_regularized_simplex(V_final, alpha, train_features, K, num_iterations= 20000, learning_rate=0.5)
+            
+                # Save V_joint to file
+                filename = f"/checkpoint/ai_society/representative_llms/data/lore/community/PRISM_V_lore_K_{K}_alpha_{alpha}.pt"
+                torch.save(V_joint, filename)
+                # Save W_joint to file
+                filename = f"/checkpoint/ai_society/representative_llms/data/lore/community/PRISM_W_lore_seen_{K}_{alpha}.pt"
+                torch.save(W_joint.detach().cpu(), filename)
+
+            print("Train Performance")
+            accuracies_train = eval_multiple(W_joint, [V_joint.detach() for i in range(N)], train_features)
+            train_accuracies_joint.append(np.mean(accuracies_train))
+            train_accuracies_joint_std.append(np.std(accuracies_train))
+
+            print("Seen User Unseen Prompts")
+            accuracies_seen_user_unseen_prompts = eval_multiple(W_joint, [V_joint.detach() for i in range(N)], test_features_sparse)
+            seen_user_unseen_prompts_accuracies_joint.append(np.mean(accuracies_seen_user_unseen_prompts))
+            seen_user_unseen_prompts_accuracies_joint_std.append(np.std(accuracies_seen_user_unseen_prompts))
+
+            # Learn the w on unseen users with few shot interactions
+            if K <= 1:
+                W_few_shot = [torch.tensor([1.0]).to(device) for i in range(N_unseen)]
+            else:
+                W_few_shot = learn_multiple_few_shot(train_features_unseen, V_joint.detach(), num_iterations=500, learning_rate=0.5)
+
+            # Save W_joint to file
+            # filename = f"checkpoints/W_lore_unseen_{K}.pt"
+            # torch.save(torch.stack(W_few_shot).detach().cpu(), filename)
+
+            print("Few Shot Train Performance")
+            accuracies_few_shot_train = eval_multiple(W_few_shot, [V_joint.detach() for i in range(N_unseen)], train_features_unseen)
+            few_shot_train_accuracies_few_shot.append(np.mean(accuracies_few_shot_train))
+            few_shot_train_accuracies_few_shot_std.append(np.std(accuracies_few_shot_train))
+
+            print("Unseen User Unseen Prompts")
+            accuracies_unseen_user_unseen_prompts = eval_multiple(W_few_shot, [V_joint.detach() for i in range(N_unseen)], test_features_sparse_unseen)
+            unseen_user_unseen_prompts_accuracies_few_shot.append(np.mean(accuracies_unseen_user_unseen_prompts))
+            unseen_user_unseen_prompts_accuracies_few_shot_std.append(np.std(accuracies_unseen_user_unseen_prompts))
+
+    fac = 0.25
+    train_accuracies_joint = np.array(train_accuracies_joint)
+    seen_user_unseen_prompts_accuracies_joint = np.array(seen_user_unseen_prompts_accuracies_joint)
+    few_shot_train_accuracies_few_shot = np.array(few_shot_train_accuracies_few_shot)
+    unseen_user_unseen_prompts_accuracies_few_shot = np.array(unseen_user_unseen_prompts_accuracies_few_shot)
+    train_accuracies_joint_std = fac * np.array(train_accuracies_joint_std)
+    seen_user_unseen_prompts_accuracies_joint_std = fac * np.array(seen_user_unseen_prompts_accuracies_joint_std)
+    few_shot_train_accuracies_few_shot_std = fac * np.array(few_shot_train_accuracies_few_shot_std)
+    unseen_user_unseen_prompts_accuracies_few_shot_std = fac * np.array(unseen_user_unseen_prompts_accuracies_few_shot_std)
+
+    return train_accuracies_joint, seen_user_unseen_prompts_accuracies_joint, few_shot_train_accuracies_few_shot, unseen_user_unseen_prompts_accuracies_few_shot, train_accuracies_joint_std, seen_user_unseen_prompts_accuracies_joint_std, few_shot_train_accuracies_few_shot_std, unseen_user_unseen_prompts_accuracies_few_shot_std
 
 def run_few_shot_vary_shots(trials, alpha_list, K_list, num_shots, train_features, train_features_unseen, test_features_sparse_unseen, V_final, N, N_unseen, device):
     all_results = {}

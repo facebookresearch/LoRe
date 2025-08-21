@@ -1,35 +1,108 @@
+#!/usr/bin/env python3
+#
+# Source: https://github.com/facebookresearch/LoRe/blob/main/PRISM/prepare.py
+#
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
+import copy
+import pprint
 import pandas as pd
 from datasets import load_dataset, load_from_disk, Dataset
 import requests
+import random
 
-url = "https://huggingface.co/datasets/HannahRoseKirk/prism-alignment/resolve/main/survey.jsonl"
-response = requests.get(url)
-with open("survey.jsonl", 'w') as f:
-    f.write(response.text)
-url = "https://huggingface.co/datasets/HannahRoseKirk/prism-alignment/resolve/main/conversations.jsonl"
-response = requests.get(url)
-with open("conversations.jsonl", 'w') as f:
-    f.write(response.text)
-url = "https://huggingface.co/datasets/HannahRoseKirk/prism-alignment/resolve/main/utterances.jsonl"
-response = requests.get(url)
-with open("utterances.jsonl", 'w') as f:
-    f.write(response.text)
+import sys
+from IPython.core import ultratb
+sys.excepthook = ultratb.FormattedTB(call_pdb=1)
+
+# Create data/prism directory if it doesn't exist
+import os
+import time
+os.makedirs("data/prism", exist_ok=True)
+
+def is_valid_jsonl(filepath):
+    """Check if a file is valid JSONL (not HTML rate limit page)"""
+    if not os.path.exists(filepath):
+        return False
+    
+    try:
+        with open(filepath, 'r') as f:
+            first_line = f.readline().strip()
+            # Check if it's HTML (rate limit page) or empty
+            if first_line.startswith('<!DOCTYPE html>') or first_line.startswith('<html') or not first_line:
+                return False
+            # Try to parse as JSON to ensure it's valid JSONL
+            import json
+            json.loads(first_line)
+            return True
+    except (json.JSONDecodeError, Exception):
+        return False
+
+def download_file_with_retry(url, filepath, max_retries=10, delay=30):
+    """Download a file with retry logic for rate limiting"""
+    for attempt in range(max_retries):
+        try:
+            print(f"Downloading {filepath} (attempt {attempt + 1})")
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+            
+            # Write to file
+            with open(filepath, 'w') as f:
+                f.write(response.text)
+            
+            # Validate the downloaded file
+            if is_valid_jsonl(filepath):
+                print(f"Successfully downloaded and validated {filepath}")
+                return True
+            else:
+                print(f"Downloaded file {filepath} appears to be rate limited or invalid")
+                if attempt < max_retries - 1:
+                    print(f"Waiting {delay} seconds before retry...")
+                    time.sleep(delay)
+                    continue
+                else:
+                    print(f"Failed to download valid file after {max_retries} attempts")
+                    return False
+                    
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            if attempt < max_retries - 1:
+                print(f"Waiting {delay} seconds before retry...")
+                time.sleep(delay)
+            else:
+                print(f"Failed to download after {max_retries} attempts")
+                return False
+    
+    return False
+
+# Download files with retry logic
+files_to_download = [
+    ("https://huggingface.co/datasets/HannahRoseKirk/prism-alignment/resolve/main/survey.jsonl", "data/prism/survey.jsonl"),
+    ("https://huggingface.co/datasets/HannahRoseKirk/prism-alignment/resolve/main/conversations.jsonl", "data/prism/conversations.jsonl"),
+    ("https://huggingface.co/datasets/HannahRoseKirk/prism-alignment/resolve/main/utterances.jsonl", "data/prism/utterances.jsonl")
+]
+
+for url, filepath in files_to_download:
+    if not is_valid_jsonl(filepath):
+        print(f"File {filepath} doesn't exist or is invalid, downloading...")
+        success = download_file_with_retry(url, filepath)
+        if not success:
+            print(f"CRITICAL: Failed to download {filepath}. Exiting.")
+            sys.exit(1)
+    else:
+        print(f"File {filepath} already exists and is valid.")
 
 # should correspond to parameters in training/evaluation
-max_text_length = 2300
-max_prompt_string_length = 1400
 seed=123
 
 import os
 import json
 import numpy as np
-np.random.seed(seed=123)
+np.random.seed(seed=seed)
 
 from pydantic import BaseModel
 from typing import List, Optional, Dict
@@ -72,7 +145,7 @@ class DataDialog(BaseModel):
 # reorganize user related data, skip num_completed_conversations==0
 data_user = DataUser()
 
-with open ("./survey.jsonl", 'r') as f:
+with open ("data/prism/survey.jsonl", 'r') as f:
     for line in f:
         d = json.loads(line)
         if d["num_completed_conversations"] == 0:
@@ -94,7 +167,7 @@ with open ("./survey.jsonl", 'r') as f:
 # reorganize dialog related data
 data_dialog = DataDialog()
 
-with open ("./conversations.jsonl", 'r') as f:
+with open ("data/prism/conversations.jsonl", 'r') as f:
     for line in f:
         d = json.loads(line)
         data_user.data[d["user_id"]].dialog_ids.append(d["conversation_id"])
@@ -131,14 +204,8 @@ for dialog_id in dialog_ids:
         if (turn['user_utterance'] == [] 
             or turn['chosen_utterance'] == [] 
             or turn['rejected_utterance'] == [] 
-            or len(turn["user_utterance"][0]) + len(turn["chosen_utterance"][0]) > max_text_length
         ):
             qualified_num -= 1
-        else:
-            for rejected in turn["rejected_utterance"]:
-                if len(turn["user_utterance"][0]) + len(rejected) > max_text_length:
-                    qualified_num -= 1
-                    break
     # only delete when the whole dialogue is not qualifed
     if qualified_num == 0:
         print("delete dialogue", dialog_id, "by", data_dialog[dialog_id]["user_id"])
@@ -149,15 +216,15 @@ for dialog_id in dialog_ids:
         del data_dialog[dialog_id]
 
 # save as json
-with open ("./prism_data_user.json", 'w') as f:
+with open ("data/prism/prism_data_user.json", 'w') as f:
     json.dump(data_user, f, indent=4)
 
-with open ("./prism_data_dialog.json", 'w') as f:
+with open ("data/prism/prism_data_dialog.json", 'w') as f:
     json.dump(data_dialog, f, indent=4)
 
 # split users
 import numpy as np
-np.random.seed(seed=123)
+np.random.seed(seed=seed)
 
 user_ids = np.array(list(data_user.keys()))
 np.random.shuffle(user_ids)
@@ -184,22 +251,6 @@ test_dialog_ids = np.array([])
 seen_user_ids = []
 unseen_user_ids = []
 
-
-# for user_id in seen_user_ids_init:
-#     to_choose_from = np.array(data_user[user_id]["dialog_ids"])
-#     np.random.shuffle(to_choose_from)
-#     train_dialog_ids = np.concatenate((train_dialog_ids, to_choose_from[:int(len(to_choose_from)*0.5)]))
-#     test_dialog_ids = np.concatenate((test_dialog_ids, to_choose_from[int(len(to_choose_from)*0.5):]))
-#     # move users with no dialog in train to unseen, because int(1*0.9)=0
-#     if len(to_choose_from) > 1:
-#         seen_user_ids.append(user_id)
-#     else:
-#         unseen_user_ids.append(user_id)
-
-# for user_id in unseen_user_ids_init:
-#     test_dialog_ids = np.concatenate((test_dialog_ids, np.array(data_user[user_id]["dialog_ids"])))
-#     unseen_user_ids.append(user_id)
-
 for user_id in seen_user_ids_init:
     to_choose_from = np.array(data_user[user_id]["dialog_ids"])
     if len(to_choose_from) > 5:
@@ -219,203 +270,106 @@ for user_id in unseen_user_ids_init:
 print(len(seen_user_ids))
 print(len(unseen_user_ids))
 
-# save as json, assign our user ids, 0=unseem, 1...=seen
 split_ids = {"train_dialog_ids": list(train_dialog_ids),
              "test_dialog_ids": list(test_dialog_ids),
              "seen_user_ids": {k:i+1 for i, k in enumerate(seen_user_ids)},
              "unseen_user_ids": {k: 0 for k in unseen_user_ids}
             }
-# with open ("./prism_split_ids.json", 'w') as f:
-    # json.dump(split_ids, f, indent=4)
-with open ("./prism_split_ids_50.json", 'w') as f:
+
+# Save split_ids
+with open("data/prism/prism_split_ids_50.json", 'w') as f:
     json.dump(split_ids, f, indent=4)
 
 def load_prism_comparisons(
-    sep="||",
-    n_user_tokens=10,
-    max_text_length=2400,
-    max_prompt_string_length = 1500,  # about 500 tokens, corresponds to max_prompt_length 550
-    sanity_check=False,
     prism_data_path=None,
-    seed=123,
-    add_textual_info=False,
 ):
-    with open("./prism_data_dialog.json", 'r') as f:
+    with open("data/prism/prism_data_dialog.json", 'r') as f:
         data_dialog = json.load(f)
-    with open("./prism_data_user.json", 'r') as f:
+    with open("data/prism/prism_data_user.json", 'r') as f:
         data_user = json.load(f)
-    with open("./prism_split_ids_50.json", 'r') as f:
+    with open("data/prism/prism_split_ids_50.json", 'r') as f:
         split_ids = json.load(f)
 
     n_users = len(data_user)
 
-    def preprocess_function(is_train, add_textual_info=False):
-        new_examples = {
-            # "prompt": [],
-            # "chosen": [],
-            # "rejected": [],
-        }
+    def preprocess_function(is_train):
+        data = []
 
         if is_train:
             dialog_ids = split_ids["train_dialog_ids"]
-            # user_ids = split_ids["seen_user_ids"]
         else:
             dialog_ids = split_ids["test_dialog_ids"]
-            # user_ids = split_ids["seen_user_ids"]
-            # user_ids.update(split_ids["unseen_user_ids"])
 
         for dialog_id in dialog_ids:
-            history = ""
             user_id = data_dialog[dialog_id]["user_id"]
-            if user_id not in new_examples:
-                # new_examples[user_id] = {
-                #     "prompt": [],
-                #     "chosen": [],
-                #     "rejected": [],
-                # }
-                new_examples[user_id] = {}
-            if dialog_id not in new_examples[user_id]:
-                new_examples[user_id][dialog_id] = {
-                    "prompt": [],
-                    "chosen": [],
-                    "rejected": [],
-                }
-            # textual info of the user
-            if add_textual_info:
-                preference = ", ".join(data_user[data_dialog[dialog_id]["user_id"]]["demographics"]["preference"])
-                textual_info = f"preference: {preference}; "
-                for k in data_user[data_dialog[dialog_id]["user_id"]]["demographics"]:
-                    if k != "preference":
-                        textual_info += f"{k}: {data_user[data_dialog[dialog_id]['user_id']]['demographics'][k]}; "
+            full_dialog = []
             for turn in data_dialog[dialog_id]["turns"]:
-                # add user utterance to history
-                history += f"<|start_header_id|>user<|end_header_id|>\n\n{turn['user_utterance'][0]}<|eot_id|>\n"
+                assert len(turn['user_utterance']) == 1
+                full_dialog.append({
+                    "role": "user",
+                    "content": turn["user_utterance"][0]
+                })
 
-                # prepare examples, skip empty or too long examples
-                if (    turn['user_utterance'] != [] 
-                    and turn['chosen_utterance'] != [] 
-                    and turn['rejected_utterance'] != [] 
-                    and len(turn["user_utterance"][0]) + len(turn["chosen_utterance"][0]) < max_text_length
-                ):
-                    # build user identifier
-                    # user_identifier = f"USER: {user_ids[data_dialog[dialog_id]['user_id']]} " + ("<|end_of_text|>"*n_user_tokens)
-                        
-                    # build prompt
-                    # prompt = user_identifier + sep
-                    # if add_textual_info:
-                    #     prompt += 'User textual information: ' + textual_info 
-                    # # truncate history
-                    # max_history_string_length = max_prompt_string_length - len(prompt)
-                    # if len(history) > max_history_string_length:
-                    #     history = history[-max_history_string_length:]
-                    # prompt += '\n' + history + "<|start_header_id|>assistant<|end_header_id|>\n\n"
-                    max_history_string_length = max_prompt_string_length
-                    if len(history) > max_history_string_length:
-                        history = history[-max_history_string_length:]
-                    prompt = history + "<|start_header_id|>assistant<|end_header_id|>\n\n"
+                entry = {
+                    'data_source': 'prism',
+                    'prompt': copy.deepcopy(full_dialog),
+                    'ability': 'alignment',
+                    'reward_model': {
+                        'style': 'model',
+                        'ground_truth': '', # not used
+                    },
+                    'extra_info': {
+                        'split': 'train' if is_train else 'test',
+                        'seen': user_id in split_ids["seen_user_ids"],
+                        'user_id': user_id,
+                        'dialog_id': dialog_id,
+                        'turn_nb': turn['turn_nb'],
+                        'total_turn_nb': data_dialog[dialog_id]["total_turn_nb"],
+                    }
+                }
 
-                    # append to examples
-                    for rejected in turn["rejected_utterance"]:
-                        # skip too long examples
-                        if len(turn["user_utterance"][0]) + len(rejected) > max_text_length:
-                            continue
-                        # new_examples["prompt"].append(prompt)
-                        # new_examples["chosen"].append(turn['chosen_utterance'][0])
-                        # new_examples["rejected"].append(rejected)
-                        new_examples[user_id][dialog_id]["prompt"].append(prompt)
-                        new_examples[user_id][dialog_id]["chosen"].append(turn['chosen_utterance'][0])
-                        new_examples[user_id][dialog_id]["rejected"].append(rejected)
-                        # # if train, duplicate 0
-                        # if is_train:
-                        #     user_identifier_0 = f"USER: {0} " + ("<|end_of_text|>"*n_user_tokens)
-                        #     prompt_0 = user_identifier_0 + sep
-                        #     if add_textual_info:
-                        #         user_identifier_0 += 'User textual information: ' + textual_info 
-                        #     prompt_0 += '\n' + history + "<|start_header_id|>assistant<|end_header_id|>\n\n"
-                        #     # new_examples["prompt"].append(prompt_0)
-                        #     # new_examples["chosen"].append(turn['chosen_utterance'][0]) 
-                        #     # new_examples["rejected"].append(rejected)
-                        #     new_examples[user_id]["prompt"].append(prompt_0)
-                        #     new_examples[user_id]["chosen"].append(turn['chosen_utterance'][0])
-                        #     new_examples[user_id]["rejected"].append(rejected)
-                    
-                # add the first chosen utterance to history for next turn
-                if turn['chosen_utterance'] != []:
-                    history += f"<|start_header_id|>assistant<|end_header_id|>\n\n{turn['chosen_utterance'][0]}<|eot_id|>\n"
+                if turn['turn_nb'] < data_dialog[dialog_id]["total_turn_nb"]:   
+                    assert len(turn['chosen_utterance']) > 0
 
-        return new_examples
+                    if len(turn['chosen_utterance']) > 1:
+                        assert all([
+                            x == turn['chosen_utterance'][0]
+                            for x in turn['chosen_utterance']])
 
-    train_dataset = preprocess_function(is_train=True, add_textual_info=add_textual_info)
-    test_dataset = preprocess_function(is_train=False, add_textual_info=add_textual_info)
+                    # the single resporse string
+                    chosen_utterance = turn["chosen_utterance"][0]
+                    entry['extra_info']['chosen_utterance'] = chosen_utterance
+
+                    # all rejected response strings
+                    rejected_utterance = turn["rejected_utterance"]
+                    entry['extra_info']['rejected_utterance'] = rejected_utterance
+
+                data.append(entry)
+
+                if turn['turn_nb'] < data_dialog[dialog_id]["total_turn_nb"]:   
+                    full_dialog.append({
+                        "role": "assistant",
+                        "content": chosen_utterance,
+                    })
+
+        return data
+
+    train_dataset = preprocess_function(is_train=True)
+    test_dataset = preprocess_function(is_train=False)
+
+    train_dataset = Dataset.from_list(train_dataset)
+    test_dataset = Dataset.from_list(test_dataset)
     
-    # train_dataset = Dataset.from_dict(train_examples)
-    # test_dataset = Dataset.from_dict(test_examples)
+    return train_dataset, test_dataset
 
-    # use a small subset for sanity check
-    if sanity_check: 
-        train_dataset = train_dataset.select(range(100))
-        test_dataset  = test_dataset.select(range(50))
-    
-    return train_dataset, test_dataset, n_users
+train_dataset, test_dataset = load_prism_comparisons()
 
-train_dataset, test_dataset, n_users = load_prism_comparisons()
+for i in range(10):
+    print(f"Train example {i}:")
+    pprint.pprint(train_dataset[i])
 
-# for user_id, dialogs in train_dataset.items():
-#     print(f"User ID: {user_id}")
-#     for dialog_id, examples in dialogs.items():
-#         print(f"Dialog ID: {dialog_id}")
-#         for i in range(len(examples["prompt"])):
-#             print(f"Prompt: {examples['prompt'][i]}")
-#             print(f"Chosen: {examples['chosen'][i]}")
-#             print(f"Rejected: {examples['rejected'][i]}")
-#             print("--------------------")
-#         break  # Only print the first user's data
-#     break
-    
+train_dataset.to_parquet('data/prism/train.parquet')
+test_dataset.to_parquet('data/prism/test.parquet')
 
-import torch
-
-from transformers import AutoModel, AutoTokenizer
-
-# Load model and tokenizer
-device = "cuda:0"
-model_name = "Skywork/Skywork-Reward-Llama-3.1-8B-v0.2"
-rm = AutoModel.from_pretrained(
-    model_name,
-    torch_dtype=torch.bfloat16,
-    device_map=device,
-    attn_implementation="flash_attention_2",
-    num_labels=1,
-)
-rm_tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-embeddings = {}
-for user_id, dialogs in train_dataset.items():
-# for user_id, dialogs in test_dataset.items():
-    print(f"User ID: {user_id}")
-    embeddings[user_id] = {}
-    for dialog_id, examples in dialogs.items():
-        print(f"Dialog ID: {dialog_id}")
-        embeddings[user_id][dialog_id] = {"chosen":[], "rejected":[]}
-        for i in range(len(examples["prompt"])):
-            # print(f"Prompt: {examples['prompt'][i]}")
-            # print(f"Chosen: {examples['chosen'][i]}")
-            # print(f"Rejected: {examples['rejected'][i]}")
-            # print("--------------------")
-            conv = [{"role": "user", "content": examples['prompt'][i]}, {"role": "assistant", "content": examples['chosen'][i]}]
-            conv_tokenized = rm_tokenizer.apply_chat_template(conv, tokenize=True, return_tensors="pt").to(device)
-            with torch.no_grad():
-                output = rm(conv_tokenized)  # Forward pass through the model
-                # Extract the last hidden state of the last token and move it to CPU
-                # rewards.append(output.logits[0][0].item())
-                embeddings[user_id][dialog_id]["chosen"].append(output.last_hidden_state[0][-1].cpu())
-            conv = [{"role": "user", "content": examples['prompt'][i]}, {"role": "assistant", "content": examples['rejected'][i]}]
-            conv_tokenized = rm_tokenizer.apply_chat_template(conv, tokenize=True, return_tensors="pt").to(device)
-            with torch.no_grad():
-                output = rm(conv_tokenized)  # Forward pass through the model
-                # Extract the last hidden state of the last token and move it to CPU
-                # rewards.append(output.logits[0][0].item())
-                embeddings[user_id][dialog_id]["rejected"].append(output.last_hidden_state[0][-1].cpu())
-    # break  # Only the first user's data
-torch.save(embeddings, "prism_train_embeddings_50.pt")
-# torch.save(embeddings, "prism_test_embeddings_50.pt")
+print(f'Train dataset size: {len(train_dataset)}')
+print(f'Test dataset size: {len(test_dataset)}')

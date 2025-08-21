@@ -54,10 +54,12 @@ The following functions are central to training and evaluating personalized rewa
 
 ### Model 
 - `LoRe(...)`: Class modeling shared reward model `V` (linear transformation on fixed embeddings) and user-specific weights `W`
+- `LoRe_regularized(...)`: Class modeling shared reward model `V` (linear transformation on fixed embeddings), cosine similarity regularization to base model, and user-specific weights `W`
 - `PersonalizeBatch(...)`: Class to model weights for new users
 
 ## Training and Evaluation
 - `run(...)`: Runs the entire pipeline with 1. Learning the basis rewards, 2. Evaluation on seen users, 3. Fewshot learning on new users, 4. Evaluation on new users. The input K_list can be modified to specify the number of basis. 0 is the reference model, and 1 is the BT model.
+- `run_regularized(...)`: Runs the entire pipeline as run(...) but with regularization on the final layer
 
 
 ---
@@ -106,17 +108,25 @@ python vary_fewshot.py
 ### 🔸 PRISM
 
 Inside the `PRISM/` directory:
-- `prepare.py`: prepares PRISM dialogue data and embeddings
+- `prepare.py`: prepares PRISM dialogue in chat format
+- `generate-prepare-embeddings.py`: prepares PRISM embeddings
 - `train_basis.py`: runs reward model training and evaluation
-- `vary_fewshot.py`: runs experiments varying the number of few-shot examples
+- `eval_rm2.py`: runs learn reward basis models on the reward bench 2 dataset
 
 Example usage:
 ```bash
 cd LoRe/PRISM
 python prepare.py          # only needed once
-python train_basis.py
-python vary_fewshot.py
+python generate-prism-embeddings.py # only needed once
+python train_basis.py # train the model for a list of ranks, default regularization is specified
+python eval_rb2.py --rm_head "path to saved final layer (V) weights" # evaluate learnt reward basis on RewardBench2 to avoid overfitting to PRISM
 ```
+---
+
+### 🟢 Community Alignment (Coming Soon)
+
+Experiments on a much larger community alignment dataset for scalable, multi-user preference learning.
+
 ---
 
 ## Contributing
