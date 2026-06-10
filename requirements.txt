@@ -7,6 +7,6 @@ Requests==2.32.3
 safetensors==0.5.3
 scikit_learn==1.6.1
 scipy==1.15.2
-torch==2.3.0
+torch==2.8.0
 torchinfo==1.8.0
 transformers==4.46.3
