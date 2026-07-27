@@ -1,29 +1,28 @@
 """
-Verify the V_sft anchor bug WITHOUT loading the 8B model.
+Probe what train_basis.py substitutes as its regularizer anchor (V_sft).
 
-train_basis.py (lines 65-82) builds its regularizer anchor like this:
+train_basis.py (lines 65-82) does:
 
     from transformers import AutoModel
     rm = AutoModel.from_pretrained("Skywork/Skywork-Reward-Llama-3.1-8B-v0.2", ...)
     last_linear_layer = None
     for name, module in rm.named_modules():
         if isinstance(module, torch.nn.Linear):
-            last_linear_layer = module          # <-- keeps the LAST Linear it sees
-    V_final = last_linear_layer.weight[:, 0]...  # <-- column 0 of that layer = V_sft
+            last_linear_layer = module          # keeps the LAST Linear it sees
+    V_final = last_linear_layer.weight[:, 0]...  # column 0 of that layer = V_sft
 
-The claim (teammate's bug): AutoModel loads the BASE model and DROPS the reward
-head, so "the last Linear" is an internal MLP layer (down_proj), not the reward
-head. The anchor everything is regularized toward is therefore a meaningless
-internal direction.
+This script just prints the characteristics so you can judge for yourself what
+that anchor is. No conclusions are drawn.
 
-This script proves that by building the model's ARCHITECTURE on the meta device
-(a zero-memory skeleton — no weights downloaded, no GPU, no 16-32GB of RAM) and
-running the EXACT same "grab the last Linear" loop. It also builds the CORRECT
-loader (AutoModelForSequenceClassification) to show the real reward head exists.
+By default it builds only the model ARCHITECTURE on the meta device (zero memory,
+no weights, no GPU) — enough to see WHICH layer the loop lands on and its shape.
+Pass --real to actually load the weights (needs the GPU box / lots of RAM) and
+print the exact 4096-vector that gets substituted, so you can inspect the values.
 
 Run:  uv run python PRISM/check_anchor.py
-(Needs network to fetch the ~30KB config.json. No model weights are downloaded.)
+      uv run python PRISM/check_anchor.py --real
 """
+import argparse
 import torch
 from transformers import AutoConfig, AutoModel, AutoModelForSequenceClassification
 
@@ -31,7 +30,6 @@ MODEL_NAME = "Skywork/Skywork-Reward-Llama-3.1-8B-v0.2"
 
 
 def empty_weights_ctx():
-    """Zero-memory model construction. Prefer accelerate; fall back to torch meta."""
     try:
         from accelerate import init_empty_weights
         return init_empty_weights()
@@ -39,48 +37,61 @@ def empty_weights_ctx():
         return torch.device("meta")
 
 
-def last_linear(model):
-    """Replicates train_basis.py:77-81 exactly — the LAST nn.Linear in iteration order."""
-    name_mod = (None, None)
-    for name, module in model.named_modules():
+def all_linears(model):
+    return [(n, tuple(m.weight.shape)) for n, m in model.named_modules()
+            if isinstance(m, torch.nn.Linear)]
+
+
+def probe_meta():
+    cfg = AutoConfig.from_pretrained(MODEL_NAME)
+    print(f"config.architectures : {cfg.architectures}")
+    print(f"config.num_labels    : {getattr(cfg, 'num_labels', None)}\n")
+
+    with empty_weights_ctx():
+        rm = AutoModel.from_config(cfg)
+    lin = all_linears(rm)
+    print(f"AutoModel  -> class {type(rm).__name__}")
+    print(f"AutoModel  -> total nn.Linear modules: {len(lin)}")
+    print("AutoModel  -> last 3 Linear layers in named_modules() order:")
+    for n, s in lin[-3:]:
+        print(f"                {n}   {s}")
+    print(f"AutoModel  -> THE one the loop keeps (last): {lin[-1][0]}   {lin[-1][1]}")
+    print(f"AutoModel  -> any module name containing 'score': "
+          f"{[n for n, _ in rm.named_modules() if 'score' in n]}\n")
+
+    with empty_weights_ctx():
+        rm2 = AutoModelForSequenceClassification.from_config(cfg)
+    print(f"AutoModelForSequenceClassification -> class {type(rm2).__name__}")
+    print("AutoModelForSequenceClassification -> Linear layers named 'score':")
+    for n, s in all_linears(rm2):
+        if "score" in n:
+            print(f"                {n}   {s}")
+
+
+def probe_real():
+    print("loading real weights (this is the heavy path)...\n")
+    rm = AutoModel.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16,
+                                   attn_implementation="eager", num_labels=1)
+    last = None
+    for name, module in rm.named_modules():
         if isinstance(module, torch.nn.Linear):
-            name_mod = (name, module)
-    return name_mod
+            last = (name, module)
+    name, module = last
+    vsft = module.weight[:, 0].float()   # exactly what train_basis.py:82 substitutes
+    print(f"substituted layer : {name}   weight shape {tuple(module.weight.shape)}")
+    print(f"V_sft = weight[:, 0] : shape {tuple(vsft.shape)}")
+    print(f"  norm      : {vsft.norm().item():.4f}")
+    print(f"  mean/std  : {vsft.mean().item():.4e} / {vsft.std().item():.4e}")
+    print(f"  first 8   : {vsft[:8].tolist()}")
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--real", action="store_true",
+                    help="load real weights and print the actual substituted vector")
+    args = ap.parse_args()
     print(f"model: {MODEL_NAME}\n")
-
-    cfg = AutoConfig.from_pretrained(MODEL_NAME)   # tiny: just config.json
-    print(f"[0] designed architecture (what the model REALLY is): {cfg.architectures}")
-    print("    -> a *ForSequenceClassification* model: its head is a Linear named 'score'.\n")
-
-    # ---- what train_basis.py actually grabs: AutoModel + last Linear ----
-    with empty_weights_ctx():
-        rm = AutoModel.from_config(cfg)            # BASE model, head dropped, zero memory
-    a_name, a_mod = last_linear(rm)
-    has_score = any("score" in n for n, _ in rm.named_modules())
-    print("[1] what train_basis.py's loop actually grabs (the anchor V_sft):")
-    print(f"    last Linear in AutoModel = '{a_name}'  shape {tuple(a_mod.weight.shape)}")
-    print(f"    does AutoModel even contain a 'score' reward head?  {has_score}")
-    print("    -> if this is an mlp.down_proj and score=False, the anchor is an")
-    print("       INTERNAL layer, and V_sft = column 0 of it (train_basis.py:82).\n")
-
-    # ---- the CORRECT loader: the real reward head ----
-    with empty_weights_ctx():
-        rm2 = AutoModelForSequenceClassification.from_config(cfg)
-    heads = [(n, tuple(m.weight.shape)) for n, m in rm2.named_modules()
-             if isinstance(m, torch.nn.Linear) and "score" in n]
-    print("[2] the reward head the code SHOULD have used:")
-    print(f"    AutoModelForSequenceClassification head(s): {heads}")
-    print("    -> a (1, 4096) Linear: the actual one-dimensional good/bad ruler.\n")
-
-    # ---- verdict ----
-    is_bug = (not has_score) and ("score" not in (a_name or ""))
-    print("=" * 60)
-    print("VERDICT:", "ANCHOR IS BUGGED (internal layer, not the reward head)"
-          if is_bug else "anchor looks like a real head — re-check assumptions")
-    print("=" * 60)
+    probe_real() if args.real else probe_meta()
 
 
 if __name__ == "__main__":
