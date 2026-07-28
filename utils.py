@@ -13,6 +13,13 @@ import random
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+# Where run_regularized() saves the V/W matrices, and an optional filename tag.
+# Defaults reproduce the ORIGINAL behavior exactly (same path, no tag), so the
+# original train_basis.py is unaffected. An experiment script can override these
+# (e.g. utils.SAVE_DIR = "...", utils.SAVE_TAG = "myexp_") to redirect its outputs.
+SAVE_DIR = "/checkpoint/ai_society/representative_llms/data/lore/community"
+SAVE_TAG = ""
+
 def simulate_user(reward_tensor, features, w):
     num_prompts = len(reward_tensor)
     feature_diff = []
@@ -586,10 +593,10 @@ def run_regularized(K_list, alpha_list, V_final, train_features, test_features_s
                 W_joint, V_joint = solve_regularized_simplex(V_final, alpha, train_features, K, num_iterations= 20000, learning_rate=0.5)
             
                 # Save V_joint to file
-                filename = f"/checkpoint/ai_society/representative_llms/data/lore/community/PRISM_V_lore_K_{K}_alpha_{alpha}.pt"
+                filename = f"{SAVE_DIR}/{SAVE_TAG}PRISM_V_lore_K_{K}_alpha_{alpha}.pt"
                 torch.save(V_joint, filename)
                 # Save W_joint to file
-                filename = f"/checkpoint/ai_society/representative_llms/data/lore/community/PRISM_W_lore_seen_{K}_{alpha}.pt"
+                filename = f"{SAVE_DIR}/{SAVE_TAG}PRISM_W_lore_seen_{K}_{alpha}.pt"
                 torch.save(W_joint.detach().cpu(), filename)
 
             print("Train Performance")

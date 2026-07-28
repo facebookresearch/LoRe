@@ -6,3 +6,6 @@ PRISM/interp/llm-judge/.env
 PRISM/interp/llm-judge/.cache/
 PRISM/interp/llm-judge/.pytest_cache/
 PRISM/interp/llm-judge/outputs/
+
+# personal scratch notes — never commit
+NOTES_claude.md
