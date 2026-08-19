@@ -29,10 +29,16 @@ import torch.nn.functional as F
 import common as C
 
 
-def best_single_direction(train_diffs, head, iters=4000, lr=0.05, device="cpu"):
+def best_single_direction(train_diffs, iters=4000, lr=0.05, seed=42, device="cpu"):
     """The OPTIMAL single shared direction: fit w to maximize logsigmoid(d.w) over
     all train pairs (every diff is a 'chosen wins' positive). This is the best any
-    one direction can do -- a real ceiling, unlike the mean-diff heuristic."""
+    one direction can do -- a real ceiling, unlike the mean-diff heuristic.
+
+    The fit orients w toward the chosen side by construction, so we do NOT reorient
+    it to the head. Reorienting a direction that is near-orthogonal to the head
+    (cos ~ 0) flips its sign on a coin toss and makes direction_pair_accuracy report
+    1 - acc instead of acc -- the spurious below-chance 0.406 in the earlier run."""
+    torch.manual_seed(seed)
     D = torch.cat([X.float() for X in train_diffs], dim=0).to(device)
     w = torch.nn.Parameter(C.unit(torch.randn(D.shape[1])).to(device))
     opt = torch.optim.Adam([w], lr=lr)
@@ -41,16 +47,14 @@ def best_single_direction(train_diffs, head, iters=4000, lr=0.05, device="cpu"):
         loss = -F.logsigmoid(D @ w).mean()
         loss.backward()
         opt.step()
-    w = C.unit(w.detach().cpu())
-    if float(w @ head) < 0:
-        w = -w
-    return w
+    return C.unit(w.detach().cpu())
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--device", default="auto")
     ap.add_argument("--fit-iters", type=int, default=4000)
+    ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
     device = C.resolve_device(args.device)
 
@@ -78,7 +82,7 @@ def main():
 
     # The OPTIMAL single shared direction (logistic fit on train) -- a true ceiling.
     print(f"[exp4] fitting best single direction ({args.fit_iters} steps)...")
-    w_best = best_single_direction(train_diffs, head, iters=args.fit_iters, device=device)
+    w_best = best_single_direction(train_diffs, iters=args.fit_iters, seed=args.seed, device=device)
 
     # Held-out accuracy on TEST: does anything (honest mean, or the BEST fitted single
     # direction) beat the anchor-forced v_pop (= head)?

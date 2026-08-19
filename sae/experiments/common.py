@@ -156,6 +156,20 @@ def direction_pair_accuracy(direction: torch.Tensor, user_diffs: list[torch.Tens
     }
 
 
+def score_correlation(d1: torch.Tensor, d2: torch.Tensor,
+                      user_diffs: list[torch.Tensor]) -> float:
+    """Pearson correlation between the two directions' scores over all pooled pairs.
+
+    Complements cosine: two directions can be near-orthogonal as vectors yet score
+    responses very similarly, because both project onto the dominant embedding
+    structure. cos(v_pop, head) ~ 0.01 but their pair scores correlate ~0.58.
+    """
+    allX = torch.cat([X.float().cpu() for X in user_diffs], dim=0)
+    s1 = allX @ d1.float().cpu()
+    s2 = allX @ d2.float().cpu()
+    return float(torch.corrcoef(torch.stack([s1, s2]))[0, 1])
+
+
 # --- SAE ----------------------------------------------------------------------
 
 def load_sae(ckpt_path: str = DEFAULT_SAE_CKPT, device: torch.device | None = None):

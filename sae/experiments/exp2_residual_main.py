@@ -87,6 +87,8 @@ def main():
     summary = {
         "significance_threshold": tau,
         "cos_vpop_head": float(v_pop @ head),
+        "score_corr_vpop_head": C.score_correlation(v_pop, head, test_diffs),
+        "score_corr_resid_head": C.score_correlation(resid, head, test_diffs),
         "directions": {
             k: {
                 "n_significant_concepts": r["n_significant"],
@@ -105,7 +107,8 @@ def main():
         print(f"[exp2] {k:9s} sig={r['n_significant']:2d} "
               f"acc={r['held_out_accuracy']['overall_pair_acc']:.4f} "
               f"cos(head)={r['cos_to_head']:+.4f}")
-    print(f"[exp2] cos(v_pop, head)={float(v_pop @ head):+.4f}")
+    print(f"[exp2] cos(v_pop, head)={float(v_pop @ head):+.4f}  "
+          f"corr(scores v_pop, head)={summary['score_corr_vpop_head']:+.4f}")
     print(f"[exp2] wrote {out_dir}/summary.json")
 
 
