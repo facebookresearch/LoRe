@@ -1,0 +1,90 @@
+{
+  "significance_threshold": 0.03179526329040527,
+  "cos_vpop_head": 0.999990701675415,
+  "directions": {
+    "head": {
+      "n_significant_concepts": 11,
+      "top_concepts": [
+        [
+          "helpfulness",
+          0.49337515234947205
+        ],
+        [
+          "factuality",
+          0.45753544569015503
+        ],
+        [
+          "values",
+          0.4446141719818115
+        ],
+        [
+          "safety",
+          0.423446387052536
+        ],
+        [
+          "diversity",
+          0.4090418815612793
+        ]
+      ],
+      "overall_pair_acc": 0.5901993144598198,
+      "per_user_mean_acc": 0.5904760409519438,
+      "cos_to_head": 1.0000009536743164
+    },
+    "v_pop": {
+      "n_significant_concepts": 11,
+      "top_concepts": [
+        [
+          "helpfulness",
+          0.4930858612060547
+        ],
+        [
+          "factuality",
+          0.4572446942329407
+        ],
+        [
+          "values",
+          0.44434911012649536
+        ],
+        [
+          "safety",
+          0.42316609621047974
+        ],
+        [
+          "diversity",
+          0.4088047742843628
+        ]
+      ],
+      "overall_pair_acc": 0.5900723625745843,
+      "per_user_mean_acc": 0.5903441200595787,
+      "cos_to_head": 0.999990701675415
+    },
+    "residual": {
+      "n_significant_concepts": 10,
+      "top_concepts": [
+        [
+          "repetition",
+          0.06818349659442902
+        ],
+        [
+          "factuality",
+          -0.06488191336393356
+        ],
+        [
+          "helpfulness",
+          -0.06447775661945343
+        ],
+        [
+          "safety",
+          -0.06258474290370941
+        ],
+        [
+          "creativity",
+          0.06206550449132919
+        ]
+      ],
+      "overall_pair_acc": 0.41652913545766157,
+      "per_user_mean_acc": 0.4153247668368939,
+      "cos_to_head": -0.00022520404309034348
+    }
+  }
+}

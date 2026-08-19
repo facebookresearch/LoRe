@@ -1,0 +1,82 @@
+{
+  "significance_threshold": 0.03179526329040527,
+  "alpha": 10000.0,
+  "cos_real_vpop_head": 0.999990701675415,
+  "cos_shuffled_head": 0.9999985098838806,
+  "cos_shuffled_real": 0.9999883770942688,
+  "head": {
+    "name": "head",
+    "n_significant_concepts": 11,
+    "significant_concepts": {
+      "helpfulness": 0.49337515234947205,
+      "factuality": 0.45753544569015503,
+      "values": 0.4446141719818115,
+      "safety": 0.423446387052536,
+      "diversity": 0.4090418815612793,
+      "sycophancy": -0.40096601843833923,
+      "repetition": -0.3932602107524872,
+      "creativity": -0.3829639256000519,
+      "formatting": 0.36237215995788574,
+      "confidence": 0.25214099884033203,
+      "fluency": -0.040832579135894775
+    },
+    "held_out_accuracy": {
+      "overall_pair_acc": 0.5901993144598198,
+      "per_user_mean_acc": 0.5904760409519438,
+      "n_users": 1029,
+      "n_pairs": 15754
+    },
+    "cos_to_head": 1.0000009536743164,
+    "cos_to_real_vpop": 0.999990701675415
+  },
+  "real_vpop": {
+    "name": "real_vpop",
+    "n_significant_concepts": 11,
+    "significant_concepts": {
+      "helpfulness": 0.4930858612060547,
+      "factuality": 0.4572446942329407,
+      "values": 0.44434911012649536,
+      "safety": 0.42316609621047974,
+      "diversity": 0.4088047742843628,
+      "sycophancy": -0.400721937417984,
+      "repetition": -0.3929555118083954,
+      "creativity": -0.3826863169670105,
+      "formatting": 0.3621934652328491,
+      "confidence": 0.2520802617073059,
+      "fluency": -0.04064839705824852
+    },
+    "held_out_accuracy": {
+      "overall_pair_acc": 0.5900723625745843,
+      "per_user_mean_acc": 0.5903441200595787,
+      "n_users": 1029,
+      "n_pairs": 15754
+    },
+    "cos_to_head": 0.999990701675415,
+    "cos_to_real_vpop": 0.9999997615814209
+  },
+  "shuffled_vpop": {
+    "name": "shuffled_vpop",
+    "n_significant_concepts": 11,
+    "significant_concepts": {
+      "helpfulness": 0.4929710626602173,
+      "factuality": 0.45710843801498413,
+      "values": 0.44421422481536865,
+      "safety": 0.4230511784553528,
+      "diversity": 0.40866175293922424,
+      "sycophancy": -0.4005827307701111,
+      "repetition": -0.39291852712631226,
+      "creativity": -0.38259071111679077,
+      "formatting": 0.36214613914489746,
+      "confidence": 0.25189539790153503,
+      "fluency": -0.04074233025312424
+    },
+    "held_out_accuracy": {
+      "overall_pair_acc": 0.590135838517202,
+      "per_user_mean_acc": 0.5904012857796036,
+      "n_users": 1029,
+      "n_pairs": 15754
+    },
+    "cos_to_head": 0.9999985098838806,
+    "cos_to_real_vpop": 0.9999883770942688
+  }
+}

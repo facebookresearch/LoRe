@@ -1,0 +1,10 @@
+{
+  "top_n": 50,
+  "overlaps": {
+    "jaccard_vpop_head": 1.0,
+    "jaccard_residual_head": 0.05263157894736842,
+    "jaccard_residual_vpop": 0.05263157894736842
+  },
+  "cos_vpop_head": 0.999990701675415,
+  "n_features": 16384
+}

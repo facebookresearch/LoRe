@@ -1,0 +1,63 @@
+{
+  "n_train_pairs": 15694,
+  "n_test_pairs": 15754,
+  "mean_train_diff_norm": 23.779306411743164,
+  "cos_u_train_head": 0.4283204674720764,
+  "cos_u_train_vpop": 0.4280175268650055,
+  "cos_u_train_u_test": 0.9962007999420166,
+  "cos_u_test_head": 0.4380013346672058,
+  "cos_best_single_head": 0.0026174159720540047,
+  "cos_best_single_vpop": 0.0026316442526876926,
+  "held_out_accuracy": {
+    "u_data_train_on_test": 0.590897549828615,
+    "u_data_test_insample": 0.5914688333121747,
+    "best_single_dir_on_test": 0.4143709534086581,
+    "head_on_test": 0.5901993144598198,
+    "v_pop_on_test": 0.5900723625745843
+  },
+  "held_out_accuracy_full": {
+    "u_data_train_on_test": {
+      "overall_pair_acc": 0.590897549828615,
+      "per_user_mean_acc": 0.5914458428935824,
+      "n_users": 1029,
+      "n_pairs": 15754
+    },
+    "u_data_test_insample": {
+      "overall_pair_acc": 0.5914688333121747,
+      "per_user_mean_acc": 0.5921362746068873,
+      "n_users": 1029,
+      "n_pairs": 15754
+    },
+    "best_single_dir_on_test": {
+      "overall_pair_acc": 0.4143709534086581,
+      "per_user_mean_acc": 0.4122873122493426,
+      "n_users": 1029,
+      "n_pairs": 15754
+    },
+    "head_on_test": {
+      "overall_pair_acc": 0.5901993144598198,
+      "per_user_mean_acc": 0.5904760409519438,
+      "n_users": 1029,
+      "n_pairs": 15754
+    },
+    "v_pop_on_test": {
+      "overall_pair_acc": 0.5900723625745843,
+      "per_user_mean_acc": 0.5903441200595787,
+      "n_users": 1029,
+      "n_pairs": 15754
+    }
+  },
+  "u_train_concepts_sig": {
+    "factuality": 0.8864151239395142,
+    "values": 0.8764661550521851,
+    "helpfulness": 0.869641125202179,
+    "safety": 0.8669825792312622,
+    "diversity": 0.847882866859436,
+    "sycophancy": -0.8439167737960815,
+    "creativity": -0.7788995504379272,
+    "repetition": -0.7078521847724915,
+    "confidence": 0.5466829538345337,
+    "formatting": 0.4974513649940491,
+    "fluency": -0.09242518991231918
+  }
+}

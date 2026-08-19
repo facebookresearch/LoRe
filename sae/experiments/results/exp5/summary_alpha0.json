@@ -1,0 +1,9 @@
+{
+  "target": "fluency",
+  "alpha": 0.0,
+  "cos_ustar_head": -0.040832582861185074,
+  "cos_vpop_synth_target": 0.8238437175750732,
+  "cos_vpop_synth_head": -0.03849838301539421,
+  "verdict": "recovered_target",
+  "interpretation": "pipeline recovers a non-head signal -> real-data null is meaningful"
+}

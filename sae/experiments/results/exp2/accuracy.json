@@ -1,0 +1,20 @@
+{
+  "head": {
+    "overall_pair_acc": 0.5901993144598198,
+    "per_user_mean_acc": 0.5904760409519438,
+    "n_users": 1029,
+    "n_pairs": 15754
+  },
+  "v_pop": {
+    "overall_pair_acc": 0.5900723625745843,
+    "per_user_mean_acc": 0.5903441200595787,
+    "n_users": 1029,
+    "n_pairs": 15754
+  },
+  "residual": {
+    "overall_pair_acc": 0.41652913545766157,
+    "per_user_mean_acc": 0.4153247668368939,
+    "n_users": 1029,
+    "n_pairs": 15754
+  }
+}
