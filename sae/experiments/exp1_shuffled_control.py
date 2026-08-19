@@ -21,21 +21,22 @@ Then re-run the SAME solve.
 
 What to expect (mentally tested)
 --------------------------------
-The real fit uses alpha=1e4, a strong pull of every V column toward the base reward
-head (V_sft). Under shuffled labels the data term goes flat, so that regularizer
-wins and V -> head, i.e. shuffled v_pop -> head. So the null-fit direction is NOT
-"aligned with nothing" -- it is the bare head. The real question is therefore a
-three-way comparison:
+v2 (LoReV2) has NO head anchor -- the vanilla alpha*(V-V_sft)^2 term is gone,
+replaced by a reward-space ridge lam_pop*||V wbar||^2. Under shuffled labels the
+data (NLL) term goes flat, so nothing pushes wbar in any direction and the ridge
+simply shrinks V@wbar toward ZERO -- not toward the head. So the null-fit
+direction is a near-degenerate low-norm vector with no consistent orientation.
+The comparison is:
     head            the base reward model
-    shuffled v_pop  what the fitter returns with no preference signal (~ head)
-    real v_pop      the actual fit
-Does using the real labels pull v_pop AWAY from the null-fit/head toward concept
-structure, or does real v_pop just sit on the head too? Run with --alpha 0 for the
-pure data-only variant (no head anchor), which isolates whether the DATA alone
-carries a shared concept-aligned direction.
+    shuffled v_pop  what the fitter returns with no preference signal (~ noise)
+    real v_pop      the actual v2 fit
+Does using the real labels produce a shared direction with concept structure and
+above-chance held-out accuracy that the shuffled fit does not? If real v_pop is
+concept-aligned / predictive while shuffled v_pop is not, the shared direction is
+carrying real preference signal, not a fitter+embedding artifact.
 
 Writes:
-  artifacts/exp1_shuffled_vpop.pt   the shuffled shared direction [4096] + V, W
+  artifacts/exp1_shuffled_vpop.pt   the shuffled shared direction [4096] + V, wbar
   results/exp1/summary.json         head vs real vs shuffled: #sig concepts, acc
   results/exp1/concepts.json        full per-concept cosines for all three
 """
@@ -51,9 +52,9 @@ import torch
 import common as C
 
 
-def refit_shared_direction(train_diffs, head_raw, head_unit, K, alpha, iters, lr, seed, device):
-    """Sign-shuffle each diff, refit LoRe, return oriented v_pop plus V, W."""
-    from utils import LoRe_regularized
+def refit_shared_direction(train_diffs, head_unit, K, lam_pop, lam_d, iters, lr, seed, device):
+    """Sign-shuffle each diff, refit LoRe v2, return oriented v_pop plus V, wbar."""
+    from utils import LoReV2, set_seed
 
     g = torch.Generator().manual_seed(seed)
     neg, pos = torch.tensor(-1.0), torch.tensor(1.0)
@@ -63,12 +64,13 @@ def refit_shared_direction(train_diffs, head_raw, head_unit, K, alpha, iters, lr
         signs = torch.where(flip, neg, pos)
         shuffled.append((X.float() * signs).to(device))
 
-    torch.manual_seed(seed)
-    am = LoRe_regularized(head_raw.to(device), alpha, len(shuffled), 4096, K, iters, lr)
+    set_seed(seed)
+    am = LoReV2(len(shuffled), 4096, K, lam_pop=lam_pop, lam_d=lam_d,
+                num_iterations=iters, learning_rate=lr)
     am.train(shuffled)
     V_full = am.V.detach().cpu().float()
-    W_full = torch.softmax(am.W, dim=1).detach().cpu().float()
-    return C.shared_direction(V_full, W_full, head_unit), V_full, W_full
+    wbar = am.wbar.detach().cpu().float().reshape(1, -1)   # [1, K]; mean == wbar
+    return C.shared_direction(V_full, wbar, head_unit), V_full, wbar
 
 
 def report(name, direction, concepts, tau, test_diffs, head_unit, ref_vpop=None):
@@ -90,10 +92,10 @@ def report(name, direction, concepts, tau, test_diffs, head_unit, ref_vpop=None)
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--alpha", type=float, default=1e4,
-                    help="head-anchor strength; 1e4 matches the real fit, 0 = data-only variant")
-    ap.add_argument("--iters", type=int, default=20000, help="LoRe solve steps (match the real fit)")
-    ap.add_argument("--lr", type=float, default=0.5)
+    ap.add_argument("--lam_pop", type=float, default=0.01, help="v2 ridge on ||V wbar||^2 (match the real fit)")
+    ap.add_argument("--lam_d", type=float, default=0.01, help="v2 ridge on mean_u ||V delta_u||^2")
+    ap.add_argument("--iters", type=int, default=2000, help="LoReV2 solve steps (match the real fit)")
+    ap.add_argument("--lr", type=float, default=1e-2)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--device", default="auto")
     args = ap.parse_args()
@@ -101,11 +103,9 @@ def main():
     device = C.resolve_device(args.device)
     out_dir = os.path.join(C.RESULTS_DIR, "exp1")
     C.ensure_dirs(out_dir, C.ARTIFACTS_DIR)
-    print(f"[exp1] device={device} alpha={args.alpha} iters={args.iters} seed={args.seed}")
+    print(f"[exp1] device={device} lam_pop={args.lam_pop} lam_d={args.lam_d} iters={args.iters} seed={args.seed}")
 
     head_unit = C.load_head()
-    from rm_head_utils import load_reward_head
-    head_raw = load_reward_head().reshape(-1, 1).float()   # [4096,1] SFT anchor V_sft
 
     V, W = C.load_basis()
     v_real = C.shared_direction(V, W, head_unit)
@@ -119,11 +119,11 @@ def main():
     test_diffs = C.load_user_diffs(split="test", seen=True)
     print(f"[exp1] refitting on {len(train_diffs)} users with signs shuffled...")
 
-    v_shuf, V_shuf, W_shuf = refit_shared_direction(
-        train_diffs, head_raw, head_unit, K, args.alpha, args.iters, args.lr, args.seed, device
+    v_shuf, V_shuf, wbar_shuf = refit_shared_direction(
+        train_diffs, head_unit, K, args.lam_pop, args.lam_d, args.iters, args.lr, args.seed, device
     )
-    torch.save({"v_pop_shuffled": v_shuf, "V": V_shuf, "W": W_shuf,
-                "seed": args.seed, "alpha": args.alpha},
+    torch.save({"v_pop_shuffled": v_shuf, "V": V_shuf, "wbar": wbar_shuf,
+                "seed": args.seed, "lam_pop": args.lam_pop, "lam_d": args.lam_d},
                os.path.join(C.ARTIFACTS_DIR, "exp1_shuffled_vpop.pt"))
 
     head_cos, head_rep = report("head", head_unit, concepts, tau, test_diffs, head_unit, v_real)
@@ -132,7 +132,8 @@ def main():
 
     summary = {
         "significance_threshold": tau,
-        "alpha": args.alpha,
+        "lam_pop": args.lam_pop,
+        "lam_d": args.lam_d,
         "cos_real_vpop_head": float(v_real @ head_unit),
         "cos_shuffled_head": float(v_shuf @ head_unit),
         "cos_shuffled_real": float(v_shuf @ v_real),

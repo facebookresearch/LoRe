@@ -15,6 +15,7 @@ NOTES_claude.md
 
 # Cached embeddings (large, regenerate via generate-prism-embeddings.py)
 PRISM/data/prism/*.pkl
+data/prism/*_embeddings.pkl
 
 # Generated reproducibility experiment results (regenerated per run, we might have
 # diffs so don't want unnecessary merge conflicts)

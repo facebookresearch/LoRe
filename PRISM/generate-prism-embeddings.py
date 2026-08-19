@@ -77,7 +77,7 @@ def generate_prism_embeddings(
         ).to(device)
 
         with torch.no_grad():
-            output = model(tokenized)
+            output = model(tokenized["input_ids"] if hasattr(tokenized, "keys") else tokenized)
             embedding = output.last_hidden_state[0, -1].cpu()  # [hidden_dim]
 
         entry["extra_info"]["chosen_conv_embedding"] = embedding
@@ -90,7 +90,7 @@ def generate_prism_embeddings(
         ).to(device)
 
         with torch.no_grad():
-            output = model(tokenized)
+            output = model(tokenized["input_ids"] if hasattr(tokenized, "keys") else tokenized)
             embedding = output.last_hidden_state[0, -1].cpu()  # [hidden_dim]
 
         entry["extra_info"]["rejected_conv_embedding"] = embedding

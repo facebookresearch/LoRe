@@ -1,9 +1,0 @@
-{
-  "target": "fluency",
-  "alpha": 10000.0,
-  "cos_ustar_head": -0.040832582861185074,
-  "cos_vpop_synth_target": 0.0011856351047754288,
-  "cos_vpop_synth_head": 0.999117374420166,
-  "verdict": "collapsed_to_head",
-  "interpretation": "anchor dominates even a clean signal -> test uninformative"
-}

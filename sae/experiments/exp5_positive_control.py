@@ -1,21 +1,23 @@
-"""Experiment 5 -- positive control: does the pipeline have the POWER to detect a
+"""Experiment 5 -- positive control: does the v2 pipeline have the POWER to recover a
 shared direction that is NOT the head?
 
-The worry after exp1-3: alpha=1e4 pulls every basis column toward the head, so maybe
-the fit returns the head no matter what the data says, making our null result
-uninformative. This checks that directly.
+Even without an anchor, we should confirm the LoReV2 fit + reward-space ridge can
+recover a clean shared signal when one exists -- otherwise the real-data result
+(v_pop != head) could be a fitter that simply never produces a strong direction.
+This checks that directly.
 
 Method: keep the exact per-user pair structure of the real PRISM train data, but
 REPLACE every diff's direction with a known target u* (a concept vector chosen to be
 nearly orthogonal to the head -- 'fluency', cos ~ -0.04 to head), preserving each
 diff's original magnitude. So the synthetic data has a clean, strong shared
-preference along u*. Then refit LoRe with the REAL hyperparameters (alpha=1e4).
+preference along u*. Then refit LoRe v2 with the REAL hyperparameters (lam_pop,
+lam_d).
 
 Read:
   cos(v_pop_synth, u*)     high  -> the fit recovers a non-head signal -> pipeline has
-                                    power -> the real-data null is meaningful (H stands)
-  cos(v_pop_synth, head)   high  -> the anchor dominates; the fit ignores even a clean
-                                    signal -> our test is uninformative (H unproven)
+                                    power -> the real-data result is meaningful
+  cos(v_pop_synth, head)   high  -> the fit drifts to the head even given a clean
+                                    non-head signal -> our test is uninformative
 
 Writes:
   artifacts/exp5_synth_vpop.pt
@@ -36,9 +38,10 @@ import common as C
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--target", default="fluency", help="concept used as the injected shared direction u*")
-    ap.add_argument("--alpha", type=float, default=1e4, help="head-anchor strength (1e4 = real fit)")
-    ap.add_argument("--iters", type=int, default=20000)
-    ap.add_argument("--lr", type=float, default=0.5)
+    ap.add_argument("--lam_pop", type=float, default=0.01, help="v2 ridge on ||V wbar||^2 (match the real fit)")
+    ap.add_argument("--lam_d", type=float, default=0.01, help="v2 ridge on mean_u ||V delta_u||^2")
+    ap.add_argument("--iters", type=int, default=2000)
+    ap.add_argument("--lr", type=float, default=1e-2)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--device", default="auto")
     args = ap.parse_args()
@@ -48,8 +51,6 @@ def main():
     C.ensure_dirs(out_dir, C.ARTIFACTS_DIR)
 
     head_unit = C.load_head()
-    from rm_head_utils import load_reward_head
-    head_raw = load_reward_head().reshape(-1, 1).float()
 
     concepts = C.load_concepts()
     if args.target not in concepts:
@@ -68,16 +69,17 @@ def main():
         mags = X.float().norm(dim=1, keepdim=True)         # [m,1]
         synth.append((mags * u_star.unsqueeze(0)).to(device))
 
-    from utils import LoRe_regularized
-    torch.manual_seed(args.seed)
-    am = LoRe_regularized(head_raw.to(device), args.alpha, len(synth), 4096, K, args.iters, args.lr)
+    from utils import LoReV2, set_seed
+    set_seed(args.seed)
+    am = LoReV2(len(synth), 4096, K, lam_pop=args.lam_pop, lam_d=args.lam_d,
+                num_iterations=args.iters, learning_rate=args.lr)
     am.train(synth)
     V_full = am.V.detach().cpu().float()
-    W_full = torch.softmax(am.W, dim=1).detach().cpu().float()
-    v_synth = C.shared_direction(V_full, W_full, u_star)   # orient toward the injected target
+    wbar = am.wbar.detach().cpu().float().reshape(1, -1)    # [1, K]; mean == wbar
+    v_synth = C.shared_direction(V_full, wbar, u_star)      # orient toward the injected target
 
-    torch.save({"v_pop_synth": v_synth, "V": V_full, "W": W_full,
-                "target": args.target, "alpha": args.alpha},
+    torch.save({"v_pop_synth": v_synth, "V": V_full, "wbar": wbar,
+                "target": args.target, "lam_pop": args.lam_pop, "lam_d": args.lam_d},
                os.path.join(C.ARTIFACTS_DIR, "exp5_synth_vpop.pt"))
 
     cos_recover = float(v_synth @ u_star)
@@ -88,15 +90,16 @@ def main():
 
     summary = {
         "target": args.target,
-        "alpha": args.alpha,
+        "lam_pop": args.lam_pop,
+        "lam_d": args.lam_d,
         "cos_ustar_head": cos_ustar_head,
         "cos_vpop_synth_target": cos_recover,
         "cos_vpop_synth_head": cos_head,
         "verdict": verdict,
         "interpretation": (
-            "pipeline recovers a non-head signal -> real-data null is meaningful"
+            "pipeline recovers a non-head signal -> real-data result is meaningful"
             if verdict == "recovered_target"
-            else "anchor dominates even a clean signal -> test uninformative"),
+            else "fit drifts to head even given a clean signal -> test uninformative"),
     }
     with open(os.path.join(out_dir, "summary.json"), "w") as f:
         json.dump(summary, f, indent=2)

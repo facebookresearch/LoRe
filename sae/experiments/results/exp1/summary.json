@@ -1,9 +1,10 @@
 {
   "significance_threshold": 0.03179526329040527,
-  "alpha": 10000.0,
-  "cos_real_vpop_head": 0.999990701675415,
-  "cos_shuffled_head": 0.9999985098838806,
-  "cos_shuffled_real": 0.9999883770942688,
+  "lam_pop": 0.01,
+  "lam_d": 0.01,
+  "cos_real_vpop_head": 0.009698859415948391,
+  "cos_shuffled_head": 0.057620301842689514,
+  "cos_shuffled_real": -0.04431763291358948,
   "head": {
     "name": "head",
     "n_significant_concepts": 11,
@@ -27,56 +28,45 @@
       "n_pairs": 15754
     },
     "cos_to_head": 1.0000009536743164,
-    "cos_to_real_vpop": 0.999990701675415
+    "cos_to_real_vpop": 0.009698859415948391
   },
   "real_vpop": {
     "name": "real_vpop",
-    "n_significant_concepts": 11,
+    "n_significant_concepts": 4,
     "significant_concepts": {
-      "helpfulness": 0.4930858612060547,
-      "factuality": 0.4572446942329407,
-      "values": 0.44434911012649536,
-      "safety": 0.42316609621047974,
-      "diversity": 0.4088047742843628,
-      "sycophancy": -0.400721937417984,
-      "repetition": -0.3929555118083954,
-      "creativity": -0.3826863169670105,
-      "formatting": 0.3621934652328491,
-      "confidence": 0.2520802617073059,
-      "fluency": -0.04064839705824852
+      "fluency": 0.07438957691192627,
+      "confidence": 0.0545601025223732,
+      "helpfulness": 0.04695744812488556,
+      "diversity": 0.046293534338474274
     },
     "held_out_accuracy": {
-      "overall_pair_acc": 0.5900723625745843,
-      "per_user_mean_acc": 0.5903441200595787,
+      "overall_pair_acc": 0.6285387838009394,
+      "per_user_mean_acc": 0.6318140898345164,
       "n_users": 1029,
       "n_pairs": 15754
     },
-    "cos_to_head": 0.999990701675415,
-    "cos_to_real_vpop": 0.9999997615814209
+    "cos_to_head": 0.009698859415948391,
+    "cos_to_real_vpop": 0.9999996423721313
   },
   "shuffled_vpop": {
     "name": "shuffled_vpop",
-    "n_significant_concepts": 11,
+    "n_significant_concepts": 7,
     "significant_concepts": {
-      "helpfulness": 0.4929710626602173,
-      "factuality": 0.45710843801498413,
-      "values": 0.44421422481536865,
-      "safety": 0.4230511784553528,
-      "diversity": 0.40866175293922424,
-      "sycophancy": -0.4005827307701111,
-      "repetition": -0.39291852712631226,
-      "creativity": -0.38259071111679077,
-      "formatting": 0.36214613914489746,
-      "confidence": 0.25189539790153503,
-      "fluency": -0.04074233025312424
+      "safety": -0.08297428488731384,
+      "formatting": 0.06697175651788712,
+      "fluency": -0.05817495658993721,
+      "values": -0.05593978613615036,
+      "diversity": -0.04620014876127243,
+      "helpfulness": 0.03672830015420914,
+      "repetition": -0.035267479717731476
     },
     "held_out_accuracy": {
-      "overall_pair_acc": 0.590135838517202,
-      "per_user_mean_acc": 0.5904012857796036,
+      "overall_pair_acc": 0.4593119207820236,
+      "per_user_mean_acc": 0.45978443016116194,
       "n_users": 1029,
       "n_pairs": 15754
     },
-    "cos_to_head": 0.9999985098838806,
-    "cos_to_real_vpop": 0.9999883770942688
+    "cos_to_head": 0.057620301842689514,
+    "cos_to_real_vpop": -0.04431763291358948
   }
 }

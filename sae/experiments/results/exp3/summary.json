@@ -1,10 +1,10 @@
 {
   "top_n": 50,
   "overlaps": {
-    "jaccard_vpop_head": 1.0,
-    "jaccard_residual_head": 0.05263157894736842,
-    "jaccard_residual_vpop": 0.05263157894736842
+    "jaccard_vpop_head": 0.041666666666666664,
+    "jaccard_residual_head": 0.030927835051546393,
+    "jaccard_residual_vpop": 0.9607843137254902
   },
-  "cos_vpop_head": 0.999990701675415,
+  "cos_vpop_head": 0.009698859415948391,
   "n_features": 16384
 }

@@ -4,17 +4,18 @@ Everything here is PRISM-based and self-contained: it reads only the artifacts
 regenerated this session and writes nothing outside sae/experiments/.
 
 Inputs it expects (repo-relative):
-  PRISM/basis_matrices.pt            (key PART2_K10_seed42: V [4096,K], W [users,K])
+  PRISM/basis_v2.pt                  (key PART2_K10_seed42_v2: V [4096,K], wbar [K], delta [users,K])
   data/prism/concept_vectors.pt      (11 concepts, each a raw [4096] vector)
   PRISM/data/prism/{train,test}_embeddings.pkl
   sae/checkpoints/d3/model.pt        (D3 TopK SAE)
   base reward head via PRISM/rm_head_utils.load_reward_head()
 
-The "shared reward direction" for the PRISM vanilla-LoRe basis is defined as
-    v_pop = unit( V @ mean_users(W) )
-because basis_matrices.pt stores per-user simplex weights W (softmax'd at save
-time), so the population weight is their mean. Swap `shared_direction` if a
-different definition is wanted -- nothing else changes.
+The "shared reward direction" for the PRISM LoRe v2 basis is defined as
+    v_pop = unit( V @ wbar )
+because v2 (LoReV2) learns a single signed population weight wbar directly (no
+softmax simplex, no alpha head-anchor). load_basis returns wbar shaped [1, K] so
+mean_users(W) == wbar and shared_direction is unchanged. Swap `shared_direction`
+if a different definition is wanted -- nothing else changes.
 """
 
 from __future__ import annotations
@@ -30,8 +31,8 @@ for _p in (REPO_ROOT, os.path.join(REPO_ROOT, "PRISM")):
     if _p not in sys.path:
         sys.path.append(_p)
 
-DEFAULT_BASIS = os.path.join(REPO_ROOT, "PRISM", "basis_matrices.pt")
-DEFAULT_RUN_KEY = "PART2_K10_seed42"
+DEFAULT_BASIS = os.path.join(REPO_ROOT, "PRISM", "basis_v2.pt")
+DEFAULT_RUN_KEY = "PART2_K10_seed42_v2"
 DEFAULT_CONCEPTS = os.path.join(REPO_ROOT, "data", "prism", "concept_vectors.pt")
 DEFAULT_TRAIN_EMB = os.path.join(REPO_ROOT, "PRISM", "data", "prism", "train_embeddings.pkl")
 DEFAULT_TEST_EMB = os.path.join(REPO_ROOT, "PRISM", "data", "prism", "test_embeddings.pkl")
@@ -68,7 +69,11 @@ def load_basis(run_key: str = DEFAULT_RUN_KEY, path: str = DEFAULT_BASIS):
     if run_key not in m:
         raise KeyError(f"{run_key!r} not in {path}; have {list(m)[:6]}")
     e = m[run_key]
-    return e["V"].float(), e["W"].float()  # V [4096,K], W [users,K] (simplex)
+    if "wbar" in e:  # LoRe v2: signed population weight, no simplex
+        # return wbar as a [1, K] "population" so mean_users(W) == wbar and
+        # shared_direction == unit(V @ wbar) with no other code change.
+        return e["V"].float(), e["wbar"].float().reshape(1, -1)
+    return e["V"].float(), e["W"].float()  # legacy vanilla: V [4096,K], W [users,K] (simplex)
 
 
 def shared_direction(V: torch.Tensor, W: torch.Tensor, head: torch.Tensor | None = None) -> torch.Tensor:
