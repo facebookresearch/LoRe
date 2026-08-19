@@ -1,5 +1,8 @@
+__pycache__/
+*.pyc
 .DS_Store
 **/.DS_Store
+test_activations.py
 
 # llm-judge runtime artifacts (secrets, caches, generated outputs) — never commit
 PRISM/interp/llm-judge/.env
@@ -9,3 +12,19 @@ PRISM/interp/llm-judge/outputs/
 
 # personal scratch notes — never commit
 NOTES_claude.md
+
+# Cached embeddings (large, regenerate via generate-prism-embeddings.py)
+PRISM/data/prism/*.pkl
+
+# Generated reproducibility experiment results (regenerated per run, we might have
+# diffs so don't want unnecessary merge conflicts)
+PRISM/basis_reproducibility_results.csv
+PRISM/basis_detail.csv
+PRISM/basis_matrices.pt
+
+# Large data blobs (regenerate via community_alignment_prep.py / the embedders)
+/data/community_alignment/embeddings.pt
+/data/community_alignment/pairs.json
+/data/multipref/embeddings.pt
+/data/multipref/pairs.json
+/data/multipref/multipref.parquet

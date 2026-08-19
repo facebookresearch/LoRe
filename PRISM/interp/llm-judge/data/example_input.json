@@ -1,0 +1,19 @@
+[
+  {
+    "id": "smoke_greeting",
+    "prompt": "Say hello to a new user in one sentence.",
+    "answer_a": "Hello, and welcome! I'm glad you're here and happy to help with whatever you need.",
+    "answer_b": "hi"
+  },
+  {
+    "id": "smoke_recipe",
+    "prompt": "How do I boil an egg?",
+    "answer_a": "Place the egg in a pot, cover with cold water, bring to a boil, then simmer 9-12 minutes for hard-boiled. Cool in ice water before peeling.",
+    "answer_b": "Boil it. Boil the egg. You boil the egg in water. Boiling is how you boil an egg."
+  },
+  {
+    "prompt": "What is the capital of France?",
+    "answer_a": "The capital of France is Paris.",
+    "answer_b": "The capital of France is Lyon, which has been the seat of government since 1789."
+  }
+]

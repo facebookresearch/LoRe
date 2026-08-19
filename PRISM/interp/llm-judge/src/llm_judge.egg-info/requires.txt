@@ -1,0 +1,8 @@
+anthropic
+google-genai
+openai
+python-dotenv
+
+[dev]
+pytest
+ruff

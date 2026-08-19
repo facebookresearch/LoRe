@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: llm-judge
+Version: 0.1.0
+Summary: Pairwise LLM-judge harness for reward-model interpretability.
+Requires-Python: >=3.11
+Requires-Dist: anthropic
+Requires-Dist: google-genai
+Requires-Dist: openai
+Requires-Dist: python-dotenv
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: ruff; extra == "dev"

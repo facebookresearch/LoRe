@@ -50,8 +50,22 @@ def generate_prism_embeddings(
         dialog_id = entry["extra_info"]["dialog_id"]
         prompt = entry["prompt"]
 
-        chosen = [{"content": entry["extra_info"]["chosen_utterance"], "role": "assistant"}]
-        rejected = [{"content": entry["extra_info"]["rejected_utterance"], "role": "assistant"}]
+        chosen_utt = entry["extra_info"].get("chosen_utterance")
+        rejected_utt = entry["extra_info"].get("rejected_utterance")
+        # Defensive: older prepared data stored rejected as a LIST of strings. Feeding a list as
+        # message content makes the chat template render its Python repr ("['a', 'b']"), a
+        # formatting artifact that separates chosen/rejected trivially and collapses the LoRe
+        # bases. Always embed a single string so both sides are formatted identically.
+        if isinstance(rejected_utt, list):
+            rejected_utt = rejected_utt[0] if rejected_utt else None
+        if isinstance(chosen_utt, list):
+            chosen_utt = chosen_utt[0] if chosen_utt else None
+        # Skip entries that are not a valid (chosen, rejected) pair: last-turn prompt-only entries
+        # (keys absent -> None after the parquet round-trip) and turns whose rejected list was empty.
+        if not chosen_utt or not rejected_utt:
+            continue
+        chosen = [{"content": chosen_utt, "role": "assistant"}]
+        rejected = [{"content": rejected_utt, "role": "assistant"}]
         chosen_conv = prompt + chosen
         rejected_conv = prompt + rejected
         
@@ -109,6 +123,15 @@ if __name__ == "__main__":
     print("📦 Loading datasets...")
     train_dataset = load_dataset("parquet", data_files="data/prism/train.parquet")["train"]
     test_dataset = load_dataset("parquet", data_files="data/prism/test.parquet")["train"]
+
+    # Optional smoke-test limit: EMBED_LIMIT=8 embeds only the first 8 of each split so the
+    # full pipeline (prepare -> embed -> save) can be validated in ~seconds instead of ~2 hours.
+    embed_limit = os.environ.get("EMBED_LIMIT")
+    if embed_limit:
+        n = int(embed_limit)
+        print(f"[EMBED_LIMIT] embedding only the first {n} examples of each split (smoke test)")
+        train_dataset = train_dataset.select(range(min(n, len(train_dataset))))
+        test_dataset = test_dataset.select(range(min(n, len(test_dataset))))
 
     # # --- Generate embeddings ---
     train_embeddings = generate_prism_embeddings(train_dataset, model, tokenizer, device, "data/prism/train_embeddings.pkl")

@@ -20,6 +20,18 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 SAVE_DIR = "/checkpoint/ai_society/representative_llms/data/lore/community"
 SAVE_TAG = ""
 
+
+def set_seed(s):
+    """Lock every RNG so basis initialization (and the learned bases) is
+    deterministic. Call this after loading the backbone model and immediately
+    before solving, so the basis init RNG state is not perturbed by earlier,
+    non-deterministic model loading."""
+    random.seed(s)
+    np.random.seed(s)
+    torch.manual_seed(s)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(s)
+
 def simulate_user(reward_tensor, features, w):
     num_prompts = len(reward_tensor)
     feature_diff = []
@@ -691,5 +703,312 @@ def run_few_shot_vary_shots(trials, alpha_list, K_list, num_shots, train_feature
                 few_shot_train_accuracies_few_shot_stds.append(np.std(few_shot_train_accuracies_few_shot))
                 unseen_user_unseen_prompts_accuracies_few_shot_means.append(np.mean(unseen_user_unseen_prompts_accuracies_few_shot))
                 unseen_user_unseen_prompts_accuracies_few_shot_stds.append(np.std(unseen_user_unseen_prompts_accuracies_few_shot))
-    
+
     return few_shot_train_accuracies_few_shot_means, few_shot_train_accuracies_few_shot_stds, unseen_user_unseen_prompts_accuracies_few_shot_means, unseen_user_unseen_prompts_accuracies_few_shot_stds
+
+
+# =====================================================================================
+# LoRe v2 -- redesigned parameterization.
+#
+# Everything below is ADDITIVE. LoRe_regularized above is the vanilla baseline that every
+# result in CONTRIBUTIONS.md came from; it is deliberately left untouched so the two can be
+# run head-to-head.
+#
+# Changes vs vanilla:
+#   1. user weights are SIGNED and unnormalized (vanilla: softmax -> simplex, so every user
+#      had to weight every basis non-negatively, which forbids bases that some users like and
+#      others dislike -- exactly the structure personalization needs)
+#   2. weights factor as wbar + delta_u: a shared population direction plus individual variation
+#   3. regularization is ridge in REWARD-FUNCTION space, not cosine-to-V_sft (the old target
+#      pulled toward the pretrained direction, incentivized collapse, and scaled with K)
+#   4. no basis-column dropping (meaningless once weights are signed and shrunk toward zero)
+#   5. joint Adam over {V, wbar, delta} instead of alternating, no fixed logit rescaling,
+#      and early stopping when the objective plateaus
+# =====================================================================================
+
+def _pack_users(X):
+    """list of [m_i, F] per-user diff tensors -> (X_cat [N, F], uid [N]).
+
+    Same packing as LoRe_regularized._prepare_batch, kept separate so the two models stay
+    independent.
+    """
+    x_list, u_list = [], []
+    for i, x in enumerate(X):
+        x_list.append(x)
+        u_list.append(torch.full((x.shape[0],), i, device=x.device, dtype=torch.long))
+    return torch.cat(x_list, dim=0), torch.cat(u_list, dim=0)
+
+
+class LoReV2(nn.Module):
+    """Low-rank personalized reward model with signed weights and a population/individual split.
+
+    Reward for user u on feature diff x:  x @ V @ (wbar + delta_u)
+
+    Loss (every term a mean, so the scale does not drift with K or with the number of users):
+
+        nll = -logsigmoid(x @ V @ (wbar + delta_u)).mean()          pooled over all pairs
+        reg = lam_pop * ||V @ wbar||^2 + lam_d * mean_u ||V @ delta_u||^2
+        loss = nll + reg
+
+    The penalty is ridge regression in reward-function space: it constrains the reward functions
+    the model can express, not the raw parameters. Note this makes it invariant to the rescaling
+    V -> cV, w -> w/c, which is intended -- but it also means the individual basis columns are
+    identified only up to an invertible transform. Use canonical_variation_axes() below to get
+    interpretable axes out of a fitted model.
+
+    The nll pools all pairs, so users with more data contribute more (this matches vanilla LoRe;
+    cap pairs per user upstream if you want equal weighting).
+    """
+
+    def __init__(self, num_users, num_features, num_basis_vectors, lam_pop=0.01, lam_d=0.01,
+                 num_iterations=2000, learning_rate=1e-2, patience=100, tol=1e-5, verbose=True):
+        super().__init__()
+        self.num_users = num_users
+        self.num_features = num_features
+        self.num_basis_vectors = num_basis_vectors
+        self.lam_pop = lam_pop
+        self.lam_d = lam_d
+        self.num_iterations = num_iterations
+        self.learning_rate = learning_rate
+        self.patience = patience
+        self.tol = tol
+        self.verbose = verbose
+
+        # Unit-norm basis columns. Vanilla used randn (column norm ~ sqrt(F) ~ 64 at F=4096) and
+        # then divided the logits by 100 to compensate. The fixed rescaling is gone here, so the
+        # magnitude has to be sane at init instead. _rescale_init() below finishes the job using
+        # the actual data.
+        V0 = torch.randn(num_features, num_basis_vectors, device=device)
+        self.V = nn.Parameter(F.normalize(V0, dim=0))
+        self.wbar = nn.Parameter(torch.randn(num_basis_vectors, device=device)
+                                 / np.sqrt(num_basis_vectors))
+        # deltas start near zero: the population direction should explain what it can before
+        # individual variation is invoked
+        self.delta = nn.Parameter(1e-3 * torch.randn(num_users, num_basis_vectors, device=device))
+
+        self.stopped_at = None      # iteration training actually stopped at
+        self.history = []           # (step, train_loss, val_loss or None)
+
+    # ---- core ----
+
+    def user_weights(self):
+        """[C, B] effective per-user weight vectors, wbar + delta_u."""
+        return self.wbar.unsqueeze(0) + self.delta
+
+    def reward_dirs(self):
+        """[F, C] the reward direction each user's model actually implements."""
+        return self.V @ self.user_weights().T
+
+    def _nll(self, X_cat, uid):
+        W_eff = self.user_weights()                  # [C, B]
+        logits = (X_cat * (W_eff[uid] @ self.V.T)).sum(dim=1)   # [N]
+        return -F.logsigmoid(logits).mean()
+
+    def _reg(self):
+        pop = (self.V @ self.wbar).pow(2).sum()                       # ||V wbar||^2
+        ind = (self.delta @ self.V.T).pow(2).sum(dim=1).mean()        # mean_u ||V delta_u||^2
+        return self.lam_pop * pop + self.lam_d * ind
+
+    @torch.no_grad()
+    def _rescale_init(self, X_cat, uid):
+        """Scale V so the initial logits have unit std.
+
+        Removing the /100.0 logit rescaling only works if the initial reward magnitudes are
+        sensible for the data at hand: 4096-dim Skywork embedding diffs have norms in the tens,
+        so an unscaled init saturates the sigmoid and kills the gradient. This sets the scale
+        from the data once, rather than hard-coding a magic constant.
+        """
+        logits = (X_cat * (self.user_weights()[uid] @ self.V.T)).sum(dim=1)
+        s = logits.std().item()
+        if s > 1e-8:
+            self.V.mul_(1.0 / s)
+
+    def train(self, X, val=None):
+        """Fit on X (list of [m_u, F] per-user diff tensors).
+
+        val: optional list in the same user order. When given, early stopping and the reported
+        best model are selected on validation NLL -- the regularization strengths must be tuned
+        on held-out data, never on test.
+
+        Returns (W_eff [C, B], V [F, B]) so it drops into eval_acc(W, V, feats) unchanged.
+        """
+        self.to(device)
+        X_cat, uid = _pack_users(X)
+        X_cat = X_cat.to(device, non_blocking=True).float()
+        uid = uid.to(device, non_blocking=True)
+        self._rescale_init(X_cat, uid)
+
+        if val is not None:
+            Xv_cat, uidv = _pack_users(val)
+            Xv_cat = Xv_cat.to(device, non_blocking=True).float()
+            uidv = uidv.to(device, non_blocking=True)
+
+        opt = optim.Adam([self.V, self.wbar, self.delta], lr=self.learning_rate)
+
+        best, best_state, since_best = float("inf"), None, 0
+        for step in range(self.num_iterations):
+            opt.zero_grad()
+            loss = self._nll(X_cat, uid) + self._reg()
+            loss.backward()
+            opt.step()
+
+            if val is not None:
+                with torch.no_grad():
+                    monitored = self._nll(Xv_cat, uidv).item()
+            else:
+                monitored = loss.item()
+            self.history.append((step, loss.item(), monitored if val is not None else None))
+
+            # plateau detection: stop once the monitored objective stops improving materially
+            if monitored < best - self.tol:
+                best, since_best = monitored, 0
+                if val is not None:
+                    best_state = {k: v.detach().clone() for k, v in self.state_dict().items()}
+            else:
+                since_best += 1
+                if since_best >= self.patience:
+                    self.stopped_at = step + 1
+                    break
+        else:
+            self.stopped_at = self.num_iterations
+
+        if val is not None and best_state is not None:
+            self.load_state_dict(best_state)
+
+        if self.verbose:
+            with torch.no_grad():
+                vn = torch.linalg.vector_norm(self.V, ord=2, dim=0)
+                dn = torch.linalg.vector_norm(self.delta, ord=2, dim=1)
+            print(f"[LoReV2] K={self.num_basis_vectors} lam_pop={self.lam_pop} "
+                  f"lam_d={self.lam_d} lr={self.learning_rate} "
+                  f"stopped at {self.stopped_at}/{self.num_iterations} iters, "
+                  f"{'val' if val is not None else 'train'} obj {best:.4f}")
+            print(f"[LoReV2] ||V[:,i]||: min {vn.min():.3f} max {vn.max():.3f} | "
+                  f"||wbar||: {self.wbar.norm():.3f} | "
+                  f"||delta_u||: min {dn.min():.4f} med {dn.median():.4f} max {dn.max():.4f}")
+
+        return self.user_weights().detach(), self.V.detach()
+
+
+class PersonalizeDelta(nn.Module):
+    """Adapt to unseen users: freeze V and wbar, learn only each new user's delta_u.
+
+    This is the point of the wbar/delta split -- a new user starts at the population reward
+    function and we only ever learn how they differ from it, which is both the cheap thing to
+    estimate from few shots and the thing we actually want to interpret.
+
+    Replaces PersonalizeBatch, which softmaxed the weights onto the simplex.
+    """
+
+    def __init__(self, num_users, num_basis_vectors, lam_d=0.01, num_iterations=500,
+                 learning_rate=1e-2, patience=50, tol=1e-5):
+        super().__init__()
+        self.lam_d = lam_d
+        self.num_iterations = num_iterations
+        self.learning_rate = learning_rate
+        self.patience = patience
+        self.tol = tol
+        self.delta = nn.Parameter(1e-3 * torch.randn(num_users, num_basis_vectors, device=device))
+
+    def train(self, X, V, wbar):
+        V = V.detach().to(device)
+        wbar = wbar.detach().to(device)
+        X_cat, uid = _pack_users(X)
+        X_cat = X_cat.to(device).float()
+        uid = uid.to(device)
+
+        opt = optim.Adam([self.delta], lr=self.learning_rate)
+        best, since_best = float("inf"), 0
+        for _ in range(self.num_iterations):
+            opt.zero_grad()
+            W_eff = wbar.unsqueeze(0) + self.delta
+            logits = (X_cat * (W_eff[uid] @ V.T)).sum(dim=1)
+            nll = -F.logsigmoid(logits).mean()
+            ind = (self.delta @ V.T).pow(2).sum(dim=1).mean()
+            loss = nll + self.lam_d * ind
+            loss.backward()
+            opt.step()
+
+            if loss.item() < best - self.tol:
+                best, since_best = loss.item(), 0
+            else:
+                since_best += 1
+                if since_best >= self.patience:
+                    break
+
+        return (wbar.unsqueeze(0) + self.delta).detach()
+
+
+def solve_lore_v2(train_features, num_basis_vectors, lam_pop=0.01, lam_d=0.01,
+                  num_iterations=2000, learning_rate=1e-2, val_features=None, verbose=True):
+    """Convenience wrapper mirroring solve_regularized_simplex, for LoReV2.
+
+    Note there is no V_sft / alpha: the anchor regularizer is gone by design.
+    """
+    num_features = train_features[0].shape[1]
+    m = LoReV2(len(train_features), num_features, num_basis_vectors, lam_pop=lam_pop,
+               lam_d=lam_d, num_iterations=num_iterations, learning_rate=learning_rate,
+               verbose=verbose)
+    W, V = m.train(train_features, val=val_features)
+    return W, V.detach(), m
+
+
+def varimax(L, gamma=1.0, max_iter=200, tol=1e-6):
+    """Varimax rotation of a loading matrix L [n, k] -> rotation R [k, k].
+
+    Rotates toward SPARSE loadings: each user should load heavily on few axes rather than
+    moderately on all of them. This is the standard fix for rotational indeterminacy in factor
+    analysis, and it is what replaces the identifiability that the simplex constraint used to
+    provide for free.
+    """
+    n, k = L.shape
+    R = torch.eye(k, dtype=L.dtype)
+    d = 0.0
+    for _ in range(max_iter):
+        d_old = d
+        Lam = L @ R
+        G = L.T @ (Lam.pow(3) - (gamma / n) * Lam @ torch.diag(torch.diag(Lam.T @ Lam)))
+        U, S, Vh = torch.linalg.svd(G, full_matrices=False)
+        R = U @ Vh
+        d = float(S.sum())
+        if d_old != 0 and d / d_old < 1 + tol:
+            break
+    return R
+
+
+def canonical_variation_axes(V, delta, k=None, rotation="varimax"):
+    """Turn a fitted (V, delta) into identifiable axes of user variation.
+
+    The V/w factorization is only identified up to V -> VR, w -> R^-1 w, so the raw basis columns
+    are not individually meaningful. What IS identified is the set of per-user reward deviations
+    {V @ delta_u}. Their SVD gives orthonormal directions ordered by how much of the across-user
+    disagreement each explains -- "clear areas of variation to focus on".
+
+    rotation="varimax" additionally fixes the rotation WITHIN near-degenerate eigenvalue blocks.
+    That matters more than it sounds: when user groups sit symmetrically (equal-sized groups each
+    caring about one axis), the leading eigenvalues come out nearly equal, and the SVD directions
+    are then an essentially arbitrary rotation of the true axes. PCA cannot break that tie; a
+    sparsity criterion can, because real users load on few axes. Pass rotation=None for the raw
+    principal axes.
+
+    Returns (axes [F, k], singular_values [k], explained_fraction [k]).
+    """
+    Vc, dc = V.detach().cpu(), delta.detach().cpu()
+    D = dc @ Vc.T                                        # [C, F] user reward deviations
+    D = D - D.mean(dim=0, keepdim=True)                  # centre: wbar already carries the mean
+    U, S, Vh = torch.linalg.svd(D, full_matrices=False)
+    k = k or S.shape[0]
+    axes, S_k = Vh[:k].T, S[:k]
+    var = S.pow(2)
+    expl = (var / var.sum().clamp_min(1e-12))[:k]
+
+    if rotation == "varimax" and k > 1:
+        loadings = D @ axes                              # [C, k] user coordinates
+        R = varimax(loadings)
+        axes = axes @ R
+        # re-order by variance explained in the rotated basis (rotation redistributes it)
+        rl = loadings @ R
+        order = torch.argsort(rl.pow(2).sum(0), descending=True)
+        axes, S_k, expl = axes[:, order], S_k[order], expl[order]
+
+    return axes, S_k, expl

@@ -1,0 +1,10 @@
+dataset,direction,n_pairs,accuracy
+rewardbench2,prism_meandiff,500,0.836
+rewardbench2,lore_basis,500,0.764
+rewardbench2,true_head,500,0.816
+ultrafeedback,prism_meandiff,500,0.782
+ultrafeedback,lore_basis,500,0.794
+ultrafeedback,true_head,500,0.81
+hh_rlhf,prism_meandiff,499,0.5872
+hh_rlhf,lore_basis,499,0.5792
+hh_rlhf,true_head,499,0.5892

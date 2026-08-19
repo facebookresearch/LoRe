@@ -1,0 +1,4 @@
+seed,rank,alpha,train_acc,test_acc,min_abs_basis_cos,bases_kept,base_rm,global,personal,other_user,n_users,median_pairs
+0,20,0.0,1.0,0.6293,0.001,20,0.6467,0.646,0.6473,0.6093,200,51
+1,20,0.0,1.0,0.6093,0.0003,20,0.6417,0.6453,0.6337,0.6217,200,51
+2,20,0.0,1.0,0.6257,0.0,20,0.6497,0.6523,0.6483,0.6013,200,51

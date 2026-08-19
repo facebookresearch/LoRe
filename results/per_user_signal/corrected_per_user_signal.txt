@@ -1,0 +1,17 @@
+Loading embeddings:
+  train: new_embeddings/train_embeddings.pkl
+  test:  new_embeddings/test_embeddings.pkl
+1029 seen users with >= 5 train and >= 3 test pairs (of 1029 seen users)
+median pairs per user: 15 train / 15 test
+
+         direction | mean test acc |    std
+----------------------------------------------
+         true_head |        0.5905 | 0.1465
+   global_meandiff |        0.5914 | 0.1451
+ personal_meandiff |        0.5656 | 0.1539
+        other_user |        0.5521 | 0.1594
+
+personal - global      : -0.0259  (per-user paired mean)
+personal - other_user  : +0.0135  (vs random-other-user control)
+
+Read-out: if BOTH gaps are clearly positive -> real learnable per-user signal. If both are ~0 (or negative) -> the personal fit just recovers the shared quality axis; no personalization.

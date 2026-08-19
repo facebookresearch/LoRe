@@ -1,0 +1,12 @@
+concept,cos_pref_axis,significant,cos_true_head,null_tau
+creativity,-0.3537,1,-0.3831,0.0313
+factuality,0.3253,1,0.4574,0.0313
+sycophancy,-0.2899,1,-0.4007,0.0313
+values,0.2777,1,0.4444,0.0313
+safety,0.2745,1,0.4235,0.0313
+diversity,0.2625,1,0.4083,0.0313
+helpfulness,0.2558,1,0.4935,0.0313
+repetition,-0.2512,1,-0.3939,0.0313
+formatting,0.1443,1,0.3621,0.0313
+fluency,0.1293,1,-0.0416,0.0313
+confidence,0.0994,1,0.2523,0.0313

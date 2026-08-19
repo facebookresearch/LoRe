@@ -14,29 +14,15 @@ from utils import *
 import random
 import matplotlib.pyplot as plt
 
-from transformers import AutoModel, AutoTokenizer
-import torchinfo
+import sys
+import os
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
+sys.path.append(os.path.join(os.path.dirname(SCRIPT_DIR), 'PRISM'))
+from rm_head_utils import load_reward_head
 
-# Load model and tokenizer
-device = "cuda:0"
-model_name = "Skywork/Skywork-Reward-Llama-3.1-8B-v0.2"
-rm = AutoModel.from_pretrained(
-    model_name,
-    torch_dtype=torch.bfloat16,
-    device_map=device,
-    attn_implementation="flash_attention_2",
-    num_labels=1,
-)
-rm_tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-# Initialize a variable to store the last linear layer
-last_linear_layer = None
-# Iterate over the model's modules
-for name, module in rm.named_modules():
-    if isinstance(module, torch.nn.Linear):
-        last_linear_layer = module
-# Print the weights and bias of the last linear layer
-V_final = last_linear_layer.weight[:,0].to(device).to(torch.float32).reshape(-1, 1)
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
+V_final = load_reward_head(device=device)
 
 with open('tldr_embeddings_train.pkl', 'rb') as f:
     worker_results_train = pickle.load(f)

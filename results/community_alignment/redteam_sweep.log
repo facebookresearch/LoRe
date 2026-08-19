@@ -1,0 +1,220 @@
+### lam_d=0
+45057 pairs, 48385 embeddings
+200 users with >= 50 pairs (median 180 pairs/user, max 321)
+
+
+=== held-out reference directions (mean +/- std over 5 seeds) ===
+  base_rm     : 0.6397 +/- 0.0069
+  global      : 0.6407 +/- 0.0062
+  personal    : 0.6405 +/- 0.0063
+  other_user  : 0.6250 +/- 0.0053
+  personal - global    : -0.0003 +/- 0.0043
+  personal - other_user: +0.0155 +/- 0.0093   (>0 and larger than its std => real user-specific signal)
+
+=== LoRe (alpha=0.0), mean +/- std over 5 seeds ===
+ rank |             test |         vs base_rm |         collapse
+------------------------------------------------------------------
+    8 | 0.6684 +/- 0.0071 | +0.0287 +/- 0.0045 | 0.0054 +/- 0.0066
+
+Saved results/community_alignment/lamd_0.csv
+Read-out: a gap only counts if it is larger than its std across seeds. LoRe beating base_rm AND personal > other_user => real personalization at this data volume; both flat => the limitation is the preference data, not volume.
+### lam_d=1
+45057 pairs, 48385 embeddings
+200 users with >= 50 pairs (median 180 pairs/user, max 321)
+
+
+=== held-out reference directions (mean +/- std over 5 seeds) ===
+  base_rm     : 0.6397 +/- 0.0069
+  global      : 0.6407 +/- 0.0062
+  personal    : 0.6405 +/- 0.0063
+  other_user  : 0.6250 +/- 0.0053
+  personal - global    : -0.0003 +/- 0.0043
+  personal - other_user: +0.0155 +/- 0.0093   (>0 and larger than its std => real user-specific signal)
+
+=== LoRe (alpha=0.0), mean +/- std over 5 seeds ===
+ rank |             test |         vs base_rm |         collapse
+------------------------------------------------------------------
+    8 | 0.6708 +/- 0.0068 | +0.0311 +/- 0.0020 | 0.0057 +/- 0.0089
+
+Saved results/community_alignment/lamd_1.csv
+Read-out: a gap only counts if it is larger than its std across seeds. LoRe beating base_rm AND personal > other_user => real personalization at this data volume; both flat => the limitation is the preference data, not volume.
+### lam_d=2
+45057 pairs, 48385 embeddings
+200 users with >= 50 pairs (median 180 pairs/user, max 321)
+
+
+=== held-out reference directions (mean +/- std over 5 seeds) ===
+  base_rm     : 0.6397 +/- 0.0069
+  global      : 0.6407 +/- 0.0062
+  personal    : 0.6405 +/- 0.0063
+  other_user  : 0.6250 +/- 0.0053
+  personal - global    : -0.0003 +/- 0.0043
+  personal - other_user: +0.0155 +/- 0.0093   (>0 and larger than its std => real user-specific signal)
+
+=== LoRe (alpha=0.0), mean +/- std over 5 seeds ===
+ rank |             test |         vs base_rm |         collapse
+------------------------------------------------------------------
+    8 | 0.6697 +/- 0.0078 | +0.0300 +/- 0.0030 | 0.0024 +/- 0.0015
+
+Saved results/community_alignment/lamd_2.csv
+Read-out: a gap only counts if it is larger than its std across seeds. LoRe beating base_rm AND personal > other_user => real personalization at this data volume; both flat => the limitation is the preference data, not volume.
+### lam_d=4
+45057 pairs, 48385 embeddings
+200 users with >= 50 pairs (median 180 pairs/user, max 321)
+
+
+=== held-out reference directions (mean +/- std over 5 seeds) ===
+  base_rm     : 0.6397 +/- 0.0069
+  global      : 0.6407 +/- 0.0062
+  personal    : 0.6405 +/- 0.0063
+  other_user  : 0.6250 +/- 0.0053
+  personal - global    : -0.0003 +/- 0.0043
+  personal - other_user: +0.0155 +/- 0.0093   (>0 and larger than its std => real user-specific signal)
+
+=== LoRe (alpha=0.0), mean +/- std over 5 seeds ===
+ rank |             test |         vs base_rm |         collapse
+------------------------------------------------------------------
+    8 | 0.6707 +/- 0.0072 | +0.0310 +/- 0.0030 | 0.0046 +/- 0.0023
+
+Saved results/community_alignment/lamd_4.csv
+Read-out: a gap only counts if it is larger than its std across seeds. LoRe beating base_rm AND personal > other_user => real personalization at this data volume; both flat => the limitation is the preference data, not volume.
+### lam_d=6
+45057 pairs, 48385 embeddings
+200 users with >= 50 pairs (median 180 pairs/user, max 321)
+
+
+=== held-out reference directions (mean +/- std over 5 seeds) ===
+  base_rm     : 0.6397 +/- 0.0069
+  global      : 0.6407 +/- 0.0062
+  personal    : 0.6405 +/- 0.0063
+  other_user  : 0.6250 +/- 0.0053
+  personal - global    : -0.0003 +/- 0.0043
+  personal - other_user: +0.0155 +/- 0.0093   (>0 and larger than its std => real user-specific signal)
+
+=== LoRe (alpha=0.0), mean +/- std over 5 seeds ===
+ rank |             test |         vs base_rm |         collapse
+------------------------------------------------------------------
+    8 | 0.6705 +/- 0.0080 | +0.0308 +/- 0.0030 | 0.0030 +/- 0.0032
+
+Saved results/community_alignment/lamd_6.csv
+Read-out: a gap only counts if it is larger than its std across seeds. LoRe beating base_rm AND personal > other_user => real personalization at this data volume; both flat => the limitation is the preference data, not volume.
+### lam_d=8
+45057 pairs, 48385 embeddings
+200 users with >= 50 pairs (median 180 pairs/user, max 321)
+
+
+=== held-out reference directions (mean +/- std over 5 seeds) ===
+  base_rm     : 0.6397 +/- 0.0069
+  global      : 0.6407 +/- 0.0062
+  personal    : 0.6405 +/- 0.0063
+  other_user  : 0.6250 +/- 0.0053
+  personal - global    : -0.0003 +/- 0.0043
+  personal - other_user: +0.0155 +/- 0.0093   (>0 and larger than its std => real user-specific signal)
+
+=== LoRe (alpha=0.0), mean +/- std over 5 seeds ===
+ rank |             test |         vs base_rm |         collapse
+------------------------------------------------------------------
+    8 | 0.6702 +/- 0.0081 | +0.0306 +/- 0.0025 | 0.0027 +/- 0.0008
+
+Saved results/community_alignment/lamd_8.csv
+Read-out: a gap only counts if it is larger than its std across seeds. LoRe beating base_rm AND personal > other_user => real personalization at this data volume; both flat => the limitation is the preference data, not volume.
+### lam_d=10
+45057 pairs, 48385 embeddings
+200 users with >= 50 pairs (median 180 pairs/user, max 321)
+
+
+=== held-out reference directions (mean +/- std over 5 seeds) ===
+  base_rm     : 0.6397 +/- 0.0069
+  global      : 0.6407 +/- 0.0062
+  personal    : 0.6405 +/- 0.0063
+  other_user  : 0.6250 +/- 0.0053
+  personal - global    : -0.0003 +/- 0.0043
+  personal - other_user: +0.0155 +/- 0.0093   (>0 and larger than its std => real user-specific signal)
+
+=== LoRe (alpha=0.0), mean +/- std over 5 seeds ===
+ rank |             test |         vs base_rm |         collapse
+------------------------------------------------------------------
+    8 | 0.6701 +/- 0.0091 | +0.0304 +/- 0.0032 | 0.0008 +/- 0.0006
+
+Saved results/community_alignment/lamd_10.csv
+Read-out: a gap only counts if it is larger than its std across seeds. LoRe beating base_rm AND personal > other_user => real personalization at this data volume; both flat => the limitation is the preference data, not volume.
+### lam_d=14
+45057 pairs, 48385 embeddings
+200 users with >= 50 pairs (median 180 pairs/user, max 321)
+
+
+=== held-out reference directions (mean +/- std over 5 seeds) ===
+  base_rm     : 0.6397 +/- 0.0069
+  global      : 0.6407 +/- 0.0062
+  personal    : 0.6405 +/- 0.0063
+  other_user  : 0.6250 +/- 0.0053
+  personal - global    : -0.0003 +/- 0.0043
+  personal - other_user: +0.0155 +/- 0.0093   (>0 and larger than its std => real user-specific signal)
+
+=== LoRe (alpha=0.0), mean +/- std over 5 seeds ===
+ rank |             test |         vs base_rm |         collapse
+------------------------------------------------------------------
+    8 | 0.6711 +/- 0.0089 | +0.0315 +/- 0.0025 | 0.0019 +/- 0.0007
+
+Saved results/community_alignment/lamd_14.csv
+Read-out: a gap only counts if it is larger than its std across seeds. LoRe beating base_rm AND personal > other_user => real personalization at this data volume; both flat => the limitation is the preference data, not volume.
+### lam_d=16
+45057 pairs, 48385 embeddings
+200 users with >= 50 pairs (median 180 pairs/user, max 321)
+
+
+=== held-out reference directions (mean +/- std over 5 seeds) ===
+  base_rm     : 0.6397 +/- 0.0069
+  global      : 0.6407 +/- 0.0062
+  personal    : 0.6405 +/- 0.0063
+  other_user  : 0.6250 +/- 0.0053
+  personal - global    : -0.0003 +/- 0.0043
+  personal - other_user: +0.0155 +/- 0.0093   (>0 and larger than its std => real user-specific signal)
+
+=== LoRe (alpha=0.0), mean +/- std over 5 seeds ===
+ rank |             test |         vs base_rm |         collapse
+------------------------------------------------------------------
+    8 | 0.6711 +/- 0.0083 | +0.0314 +/- 0.0020 | 0.0013 +/- 0.0007
+
+Saved results/community_alignment/lamd_16.csv
+Read-out: a gap only counts if it is larger than its std across seeds. LoRe beating base_rm AND personal > other_user => real personalization at this data volume; both flat => the limitation is the preference data, not volume.
+### min_pairs=200
+45057 pairs, 48385 embeddings
+141 users with >= 200 pairs (median 189 pairs/user, max 320)
+
+
+=== held-out reference directions (mean +/- std over 5 seeds) ===
+  base_rm     : 0.6429 +/- 0.0018
+  global      : 0.6426 +/- 0.0024
+  personal    : 0.6419 +/- 0.0032
+  other_user  : 0.6289 +/- 0.0054
+  personal - global    : -0.0007 +/- 0.0042
+  personal - other_user: +0.0130 +/- 0.0046   (>0 and larger than its std => real user-specific signal)
+
+=== LoRe (alpha=0.0), mean +/- std over 5 seeds ===
+ rank |             test |         vs base_rm |         collapse
+------------------------------------------------------------------
+    8 | 0.6654 +/- 0.0052 | +0.0225 +/- 0.0051 | 0.0034 +/- 0.0013
+
+Saved results/community_alignment/highvol_min200.csv
+Read-out: a gap only counts if it is larger than its std across seeds. LoRe beating base_rm AND personal > other_user => real personalization at this data volume; both flat => the limitation is the preference data, not volume.
+### min_pairs=250
+45057 pairs, 48385 embeddings
+37 users with >= 250 pairs (median 279 pairs/user, max 320)
+
+
+=== held-out reference directions (mean +/- std over 5 seeds) ===
+  base_rm     : 0.6077 +/- 0.0072
+  global      : 0.6081 +/- 0.0055
+  personal    : 0.6104 +/- 0.0113
+  other_user  : 0.5801 +/- 0.0246
+  personal - global    : +0.0023 +/- 0.0061
+  personal - other_user: +0.0303 +/- 0.0293   (>0 and larger than its std => real user-specific signal)
+
+=== LoRe (alpha=0.0), mean +/- std over 5 seeds ===
+ rank |             test |         vs base_rm |         collapse
+------------------------------------------------------------------
+    8 | 0.6219 +/- 0.0109 | +0.0142 +/- 0.0066 | 0.0034 +/- 0.0015
+
+Saved results/community_alignment/highvol_min250.csv
+Read-out: a gap only counts if it is larger than its std across seeds. LoRe beating base_rm AND personal > other_user => real personalization at this data volume; both flat => the limitation is the preference data, not volume.

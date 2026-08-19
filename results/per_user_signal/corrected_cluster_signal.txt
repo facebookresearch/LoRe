@@ -1,0 +1,19 @@
+Loading embeddings:
+  train: new_embeddings/train_embeddings.pkl
+  test:  new_embeddings/test_embeddings.pkl
+1029 qualifying seen users
+
+global_meandiff : 0.5914   (bar to beat)
+true_head       : 0.5905
+
+#clusters | own_cluster | random_cluster | own - global |  cluster sizes (min/med/max)
+--------------------------------------------------------------------------------------------
+        2 |      0.5601 |         0.4576 |      -0.0313 |    219/514/810  
+        3 |      0.5667 |         0.5208 |      -0.0247 |    174/305/550  
+        5 |      0.5654 |         0.5128 |      -0.0260 |    114/174/389  
+       10 |      0.5687 |         0.5371 |      -0.0227 |     45/ 72/198  
+       20 |      0.5663 |         0.5281 |      -0.0252 |     12/ 48/125  
+       50 |      0.5646 |         0.5434 |      -0.0269 |      1/ 11/109  
+
+Best: K=10 own_cluster=0.5687 (own-global -0.0227)
+Read-out: if own_cluster clearly beats global and exceeds random_cluster -> real group-level signal. If own ~= global ~= random for all K -> no separable structure even after pooling (per-user null is not just a sparsity artifact).
