@@ -1,0 +1,3 @@
+# D3 TopK SAE checkpoint (~512 MB) -- decodes the shared Skywork space, not committed.
+# Download separately and drop it in this folder to run exp3.
+D3_*.pt

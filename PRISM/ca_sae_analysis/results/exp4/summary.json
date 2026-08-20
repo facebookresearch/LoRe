@@ -1,0 +1,65 @@
+{
+  "dataset": "community_alignment",
+  "config": "CA_K10_seed42_lam.01_.01",
+  "n_train_pairs": 27036,
+  "n_test_pairs": 9010,
+  "mean_train_diff_norm": 28.875734329223633,
+  "cos_u_train_head": 0.45089709758758545,
+  "cos_u_train_vpop": 0.03945288434624672,
+  "cos_u_train_u_test": 0.998649537563324,
+  "cos_u_test_head": 0.4499673843383789,
+  "cos_best_single_head": 0.03712517395615578,
+  "cos_best_single_vpop": 0.14169593155384064,
+  "held_out_accuracy": {
+    "u_data_train_on_test": 0.6378468368479467,
+    "u_data_test_insample": 0.6381798002219756,
+    "best_single_dir_on_test": 0.6493895671476138,
+    "head_on_test": 0.6364039955604883,
+    "v_pop_on_test": 0.6796892341842398
+  },
+  "held_out_accuracy_full": {
+    "u_data_train_on_test": {
+      "overall_pair_acc": 0.6378468368479467,
+      "per_user_mean_acc": 0.6427839440107346,
+      "n_users": 200,
+      "n_pairs": 9010
+    },
+    "u_data_test_insample": {
+      "overall_pair_acc": 0.6381798002219756,
+      "per_user_mean_acc": 0.6430081528425217,
+      "n_users": 200,
+      "n_pairs": 9010
+    },
+    "best_single_dir_on_test": {
+      "overall_pair_acc": 0.6493895671476138,
+      "per_user_mean_acc": 0.6537540502846241,
+      "n_users": 200,
+      "n_pairs": 9010
+    },
+    "head_on_test": {
+      "overall_pair_acc": 0.6364039955604883,
+      "per_user_mean_acc": 0.6413823057711124,
+      "n_users": 200,
+      "n_pairs": 9010
+    },
+    "v_pop_on_test": {
+      "overall_pair_acc": 0.6796892341842398,
+      "per_user_mean_acc": 0.6859265431761742,
+      "n_users": 200,
+      "n_pairs": 9010
+    }
+  },
+  "u_train_concepts_sig": {
+    "helpfulness": 0.9180874824523926,
+    "factuality": 0.8605009317398071,
+    "repetition": -0.8210649490356445,
+    "values": 0.8189454674720764,
+    "creativity": -0.8043003678321838,
+    "safety": 0.7970249056816101,
+    "diversity": 0.7934680581092834,
+    "sycophancy": -0.7813025712966919,
+    "formatting": 0.5920404195785522,
+    "confidence": 0.4821978807449341,
+    "fluency": -0.24070414900779724
+  }
+}

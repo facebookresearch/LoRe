@@ -1,0 +1,71 @@
+{
+  "dataset": "community_alignment",
+  "config": "CA_K10_seed42_lam.01_.01",
+  "significance_threshold": 0.031795259565114975,
+  "lam_pop": 0.01,
+  "lam_d": 0.01,
+  "iters": 5000,
+  "lr": 0.0001,
+  "seed": 42,
+  "wbar_norm_real": 0.908210039138794,
+  "wbar_norm_shuffled": 0.752368688583374,
+  "cos_real_vpop_head": 0.03502548858523369,
+  "cos_shuffled_head": 0.004271472338587046,
+  "cos_shuffled_real": -0.012471966445446014,
+  "head": {
+    "name": "head",
+    "n_significant_concepts": 11,
+    "significant_concepts": {
+      "helpfulness": 0.49337491393089294,
+      "factuality": 0.457535058259964,
+      "values": 0.4446139633655548,
+      "safety": 0.42344608902931213,
+      "diversity": 0.40904152393341064,
+      "sycophancy": -0.4009658098220825,
+      "repetition": -0.39326006174087524,
+      "creativity": -0.38296371698379517,
+      "formatting": 0.36237192153930664,
+      "confidence": 0.2521408796310425,
+      "fluency": -0.04083254933357239
+    },
+    "held_out_accuracy": {
+      "overall_pair_acc": 0.6364039955604883,
+      "per_user_mean_acc": 0.6413823057711124,
+      "n_users": 200,
+      "n_pairs": 9010
+    },
+    "cos_to_head": 1.000002145767212,
+    "cos_to_real_vpop": 0.03502548858523369
+  },
+  "real_vpop": {
+    "name": "real_vpop",
+    "n_significant_concepts": 4,
+    "significant_concepts": {
+      "confidence": 0.04704863578081131,
+      "fluency": 0.0457964688539505,
+      "diversity": 0.03810922056436539,
+      "helpfulness": 0.03732603043317795
+    },
+    "held_out_accuracy": {
+      "overall_pair_acc": 0.6796892341842398,
+      "per_user_mean_acc": 0.6859265431761742,
+      "n_users": 200,
+      "n_pairs": 9010
+    },
+    "cos_to_head": 0.03502548858523369,
+    "cos_to_real_vpop": 1.0
+  },
+  "shuffled_vpop": {
+    "name": "shuffled_vpop",
+    "n_significant_concepts": 0,
+    "significant_concepts": {},
+    "held_out_accuracy": {
+      "overall_pair_acc": 0.4891231964483907,
+      "per_user_mean_acc": 0.48614448852837083,
+      "n_users": 200,
+      "n_pairs": 9010
+    },
+    "cos_to_head": 0.004271472338587046,
+    "cos_to_real_vpop": -0.012471966445446014
+  }
+}

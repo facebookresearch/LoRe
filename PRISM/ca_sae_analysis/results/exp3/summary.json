@@ -1,0 +1,23 @@
+{
+  "sae_checkpoint": "D3_16384_k256_string-vs-string-v1.pt",
+  "n_features": 16384,
+  "top_n": 50,
+  "community_alignment": {
+    "top_n": 50,
+    "cos_vpop_head": 0.03502548858523369,
+    "overlaps": {
+      "jaccard_vpop_head": 0.010101010101010102,
+      "jaccard_residual_head": 0.010101010101010102,
+      "jaccard_residual_vpop": 0.9607843137254902
+    }
+  },
+  "prism": {
+    "top_n": 50,
+    "cos_vpop_head": 0.00969887524843216,
+    "overlaps": {
+      "jaccard_vpop_head": 0.041666666666666664,
+      "jaccard_residual_head": 0.041666666666666664,
+      "jaccard_residual_vpop": 0.9607843137254902
+    }
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "dataset": "community_alignment",
+  "config": "CA_K10_seed42_lam.01_.01",
+  "significance_threshold": 0.031795259565114975,
+  "cos_vpop_head": 0.03502548858523369,
+  "score_corr_vpop_head": 0.7223109006881714,
+  "score_corr_resid_head": 0.25142520666122437,
+  "resid_norm_over_vpop_norm": 0.9993862509727478,
+  "directions": {
+    "head": {
+      "n_significant_concepts": 11,
+      "top_concepts": [
+        [
+          "helpfulness",
+          0.49337491393089294
+        ],
+        [
+          "factuality",
+          0.457535058259964
+        ],
+        [
+          "values",
+          0.4446139633655548
+        ],
+        [
+          "safety",
+          0.42344608902931213
+        ],
+        [
+          "diversity",
+          0.40904152393341064
+        ]
+      ],
+      "overall_pair_acc": 0.6364039955604883,
+      "per_user_mean_acc": 0.6413823057711124,
+      "cos_to_head": 1.000002145767212
+    },
+    "v_pop": {
+      "n_significant_concepts": 4,
+      "top_concepts": [
+        [
+          "confidence",
+          0.04704863578081131
+        ],
+        [
+          "fluency",
+          0.0457964688539505
+        ],
+        [
+          "diversity",
+          0.03810922056436539
+        ],
+        [
+          "helpfulness",
+          0.03732603043317795
+        ]
+      ],
+      "overall_pair_acc": 0.6796892341842398,
+      "per_user_mean_acc": 0.6859265431761742,
+      "cos_to_head": 0.03502548858523369
+    },
+    "residual": {
+      "n_significant_concepts": 2,
+      "top_concepts": [
+        [
+          "fluency",
+          0.04725564271211624
+        ],
+        [
+          "confidence",
+          0.03824073076248169
+        ]
+      ],
+      "overall_pair_acc": 0.6512763596004439,
+      "per_user_mean_acc": 0.6576326532661915,
+      "cos_to_head": -8.009374141693115e-08
+    }
+  }
+}

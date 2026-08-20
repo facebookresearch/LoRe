@@ -1,0 +1,15 @@
+{
+  "dataset": "community_alignment",
+  "config": "CA_K10_seed42_lam.01_.01",
+  "target": "fluency",
+  "lam_pop": 0.01,
+  "lam_d": 0.01,
+  "iters": 5000,
+  "lr": 0.0001,
+  "seed": 42,
+  "cos_ustar_head": -0.040832601487636566,
+  "cos_vpop_synth_target": 0.29011279344558716,
+  "cos_vpop_synth_head": -0.0031197983771562576,
+  "verdict": "recovered_target",
+  "interpretation": "pipeline recovers a non-head signal -> real-data result is meaningful"
+}
