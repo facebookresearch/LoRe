@@ -60,7 +60,7 @@ Held-out pair accuracy (results/exp2/accuracy.json, 200 users, 9,010 pairs): hea
 
 The residual is not noise and not a separate direction either. ||residual||/||v_pop|| = 1.00, and cos(v_pop, head) = 0.035, so removing the head component from v_pop changes almost nothing (it was already nearly orthogonal). The residual scores 0.6513, close to v_pop's 0.6797. The residual is essentially v_pop.
 
-The control (exp1, results/exp1/summary.json) shows the signal comes from the labels. Sign-flipping the labels flattens the data term; the refit lands on a direction uncorrelated with the real v_pop (cos −0.013), with zero significant concepts, whose held-out accuracy is 0.4891 — at chance. Note a real difference from PRISM: here ||wbar|| does not collapse to zero (0.908 → 0.752). With ~180 pairs/user the ridge still finds a sizeable wbar, but it carries no held-out signal, no concept alignment, and is orthogonal to the real direction. So on CA the discriminators are the at-chance accuracy, the zero concepts, and the −0.013 correlation with the real v_pop — not a ||wbar|| collapse. Same "it's a null" conclusion, read off different quantities.
+The control (exp1, results/exp1/summary.json) shows the signal comes from the labels. Sign-flipping the labels flattens the data term; the refit lands on a direction uncorrelated with the real v_pop (cos −0.012), with zero significant concepts, whose held-out accuracy is 0.4891 — at chance. Note a real difference from PRISM: here ||wbar|| does not collapse to zero (0.908 → 0.752). With ~180 pairs/user the ridge still finds a sizeable wbar, but it carries no held-out signal, no concept alignment, and is orthogonal to the real direction. So on CA the discriminators are the at-chance accuracy, the zero concepts, and the −0.012 correlation with the real v_pop — not a ||wbar|| collapse. Same "it's a null" conclusion, read off different quantities.
 
 The counter-experiments check the mechanism.
 
@@ -100,7 +100,7 @@ python exp3_feature_space.py --device cpu   # needs D3_16384_k256_string-vs-stri
 
 v_pop is distinct from the head only because the fit is noisy: ruled out by exp2 and exp4. v_pop predicts held-out CA pairs at 0.6797, above the head's 0.6364 and above every single data direction tested (mean-diff 0.6378, best logistic 0.6494). A noisy fit would not beat the head out of sample on ~180 pairs/user.
 
-v_pop's predictive power comes from the fitter, not the preferences: ruled out by exp1. Sign-flipping the labels produces a direction uncorrelated with the real v_pop (cos −0.013), with zero significant concepts, at chance out of sample (0.4891). The 0.6797 depends on the real labels.
+v_pop's predictive power comes from the fitter, not the preferences: ruled out by exp1. Sign-flipping the labels produces a direction uncorrelated with the real v_pop (cos −0.012), with zero significant concepts, at chance out of sample (0.4891). The 0.6797 depends on the real labels.
 
 The v2 pipeline can only ever return the head: ruled out by exp5. An injected fluency direction is recovered off the head (cos to head −0.003; cos to target 0.29 at the matched lr, 0.80 at the standard lr). The pipeline can represent a non-head direction.
 
@@ -108,7 +108,7 @@ The v2 pipeline can only ever return the head: ruled out by exp5. An injected fl
 
 v_pop predicts held-out pairs (0.6797) but does not align with any of the 11 named concepts above 0.047, and exp3 shows it fires almost entirely different SAE features from the head without pinning it to a nameable feature theme. So it is a real, predictive direction that neither the concept library nor the raw SAE-overlap read explains in human terms — it is proven distinct, not yet positively named. A larger/different concept set, or reading the top-activating responses of v_pop's own SAE features, might describe it; it may also be capturing something outside the current probes (format, length, topic).
 
-The exp1 null presents differently than on PRISM: ||wbar|| does not collapse (0.908 → 0.752). The discriminators that mark it as a null are the at-chance accuracy (0.4891), the zero significant concepts, and the −0.013 correlation with the real v_pop — not a norm collapse. If a future reviewer expects the PRISM-style ||wbar|| → 0 signature, it is worth stating up front that at CA's data volume the null is read off accuracy/concepts/orthogonality instead.
+The exp1 null presents differently than on PRISM: ||wbar|| does not collapse (0.908 → 0.752). The discriminators that mark it as a null are the at-chance accuracy (0.4891), the zero significant concepts, and the −0.012 correlation with the real v_pop — not a norm collapse. If a future reviewer expects the PRISM-style ||wbar|| → 0 signature, it is worth stating up front that at CA's data volume the null is read off accuracy/concepts/orthogonality instead.
 
 exp5 recovery is only partial (cos 0.29) at the CA fit's own lr; it takes the standard v2 lr to reach cos 0.80. The positive control still passes (off-head both times), but the low-lr number should be reported with the convergence caveat, not as a clean recovery.
 
