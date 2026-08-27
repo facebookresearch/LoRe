@@ -129,6 +129,15 @@ Experiments on a much larger community alignment dataset for scalable, multi-use
 
 ---
 
+### 🔍 SAE interpretability of the shared population direction
+
+Interpretability analysis of the LoRe v2 shared population direction `v_pop = unit(V @ wbar)` — is it a distinct learned preference axis, or just the base Skywork reward head? It is read through an 11-concept library and a 16,384-feature TopK SAE, and run on both PRISM and Community Alignment.
+
+- **PRISM:** writeup [`PRISM/sae_analysis.md`](PRISM/sae_analysis.md); code and results in [`sae/experiments/`](sae/experiments/) (`exp1`–`exp5`, results under `results/exp*/`, saved directions under `artifacts/`).
+- **Community Alignment:** writeup [`PRISM/ca_sae_analysis/ca_sae_analysis.md`](PRISM/ca_sae_analysis/ca_sae_analysis.md); code, results, and reproduction steps in [`PRISM/ca_sae_analysis/`](PRISM/ca_sae_analysis/) (see its `README.md`). The ~512 MB D3 SAE checkpoint is gitignored — download and drop it in locally to run exp3.
+
+---
+
 ## Contributing
 See the [CONTRIBUTING](CONTRIBUTING.md) file for how to help out.
 
